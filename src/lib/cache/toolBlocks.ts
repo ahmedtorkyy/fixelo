@@ -209,12 +209,17 @@ Write-Log "Recycle Bin emptying cannot be undone. Deleted files are gone permane
 New-Item -Path "HKCU:\\Software\\Microsoft\\GameBar" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\GameBar" -Name "AllowAutoGameMode" -Value 1 -Type DWord
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\GameBar" -Name "AutoGameModeEnabled" -Value 1 -Type DWord
-Write-Log "Game Mode enabled"`,
+$checkAllow = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\GameBar" -Name "AllowAutoGameMode" -ErrorAction SilentlyContinue).AllowAutoGameMode
+$checkEnabled = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\GameBar" -Name "AutoGameModeEnabled" -ErrorAction SilentlyContinue).AutoGameModeEnabled
+if ($checkAllow -eq 1 -and $checkEnabled -eq 1) { Write-Log "Verified: Game Mode enabled" "Green" }
+else { Write-Log "Could not verify: Game Mode settings mismatch" "Yellow" }`,
       undoScript: `
 # Disable Game Mode
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\GameBar" -Name "AllowAutoGameMode" -Value 0 -Type DWord
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\GameBar" -Name "AutoGameModeEnabled" -Value 0 -Type DWord
-Write-Log "Game Mode disabled"`,
+$checkAllow = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\GameBar" -Name "AllowAutoGameMode" -ErrorAction SilentlyContinue).AllowAutoGameMode
+if ($checkAllow -eq 0) { Write-Log "Verified: Game Mode disabled" "Green" }
+else { Write-Log "Could not verify: Game Mode still enabled" "Yellow" }`,
     },
     {
       id: "gpu-max",
@@ -225,6 +230,9 @@ Write-Log "Game Mode disabled"`,
 # NVIDIA: prefer maximum performance
 New-Item -Path "HKCU:\\SOFTWARE\\NVIDIA Corporation\\Global\\NvCplApi\\PKeys" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\NVIDIA Corporation\\Global\\NvCplApi\\PKeys" -Name "PerfBoost" -Value 1 -Type DWord
+$nvCheck = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\NVIDIA Corporation\\Global\\NvCplApi\\PKeys" -Name "PerfBoost" -ErrorAction SilentlyContinue).PerfBoost
+if ($nvCheck -eq 1) { Write-Log "Verified: NVIDIA performance boost enabled" "Green" }
+else { Write-Log "Could not verify: NVIDIA setting" "Yellow" }
 
 # Windows: prefer high performance GPU
 $gpuPaths = Get-ChildItem "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}" -ErrorAction SilentlyContinue
@@ -237,6 +245,7 @@ foreach ($gpu in $gpuPaths) {
 Write-Log "GPU set to maximum performance"`,
       undoScript: `
 # Restore GPU power management defaults
+Remove-ItemProperty -Path "HKCU:\\SOFTWARE\\NVIDIA Corporation\\Global\\NvCplApi\\PKeys" -Name "PerfBoost" -ErrorAction SilentlyContinue
 $gpuPaths = Get-ChildItem "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}" -ErrorAction SilentlyContinue
 foreach ($gpu in $gpuPaths) {
   $gpuPath = $gpu.PSPath
@@ -312,7 +321,9 @@ Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Gam
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR" -Name "HistoricalCaptureEnabled" -Value 0 -Type DWord -ErrorAction SilentlyContinue
 New-Item -Path "HKCU:\\Software\\Microsoft\\GameBar" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\GameBar" -Name "ShowStartupPanel" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-Write-Log "Xbox Game Bar disabled"`,
+$capture = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR" -Name "AppCaptureEnabled" -ErrorAction SilentlyContinue).AppCaptureEnabled
+if ($capture -eq 0) { Write-Log "Verified: Game Bar disabled" "Green" }
+else { Write-Log "Could not verify: Game Bar setting" "Yellow" }`,
       undoScript: `
 # Re-enable Xbox Game Bar
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR" -Name "AppCaptureEnabled" -Value 1 -Type DWord -ErrorAction SilentlyContinue
