@@ -339,11 +339,15 @@ Write-Log "Xbox Game Bar re-enabled"`,
 # Disable background apps via registry
 New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -Value 1 -Type DWord
-Write-Log "Background apps disabled"`,
+$bgCheck = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -ErrorAction SilentlyContinue).GlobalUserDisabled
+if ($bgCheck -eq 1) { Write-Log "Verified: Background apps disabled" "Green" }
+else { Write-Log "Could not verify: Background apps setting" "Yellow" }`,
       undoScript: `
 # Re-enable background apps
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -Value 0 -Type DWord
-Write-Log "Background apps re-enabled"`,
+$bgCheck = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -ErrorAction SilentlyContinue).GlobalUserDisabled
+if ($bgCheck -eq 0) { Write-Log "Verified: Background apps re-enabled" "Green" }
+else { Write-Log "Could not verify: Background apps setting" "Yellow" }`,
     },
   ],
 
@@ -402,11 +406,15 @@ Write-Log "TCP settings restored to defaults"`,
 # Disable QoS reserved bandwidth limit
 New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Psched" -Force | Out-Null
 Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Psched" -Name "NonBestEffortLimit" -Value 0 -Type DWord
-Write-Log "Bandwidth throttle disabled"`,
+$throttleCheck = (Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Psched" -Name "NonBestEffortLimit" -ErrorAction SilentlyContinue).NonBestEffortLimit
+if ($throttleCheck -eq 0) { Write-Log "Verified: Bandwidth throttle disabled" "Green" }
+else { Write-Log "Could not verify: Bandwidth throttle setting" "Yellow" }`,
       undoScript: `
 # Restore QoS reserved bandwidth limit
 Remove-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Psched" -Name "NonBestEffortLimit" -ErrorAction SilentlyContinue
-Write-Log "Bandwidth throttle restored to default"`,
+$throttleCheck = Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Psched" -Name "NonBestEffortLimit" -ErrorAction SilentlyContinue
+if (-not $throttleCheck) { Write-Log "Verified: Bandwidth throttle restored" "Green" }
+else { Write-Log "Could not verify: Bandwidth throttle still set" "Yellow" }`,
     },
     {
       id: "reset-network",
@@ -753,12 +761,16 @@ Remove-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\
 New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\MicrosoftEdge\\Main" -Force | Out-Null
 Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\MicrosoftEdge\\Main" -Name "AllowPrelaunch" -Value 0 -Type DWord
 Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\MicrosoftEdge\\TabPreloader" -Name "AllowTabPreloading" -Value 0 -Type DWord
-Write-Log "Edge background processes disabled"`,
+$edgeCheck = (Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\MicrosoftEdge\\Main" -Name "AllowPrelaunch" -ErrorAction SilentlyContinue).AllowPrelaunch
+if ($edgeCheck -eq 0) { Write-Log "Verified: Edge background disabled" "Green" }
+else { Write-Log "Could not verify: Edge setting" "Yellow" }`,
       undoScript: `
 # Re-enable Edge background processes
 Remove-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\MicrosoftEdge\\Main" -Name "AllowPrelaunch" -ErrorAction SilentlyContinue
 Remove-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\MicrosoftEdge\\TabPreloader" -Name "AllowTabPreloading" -ErrorAction SilentlyContinue
-Write-Log "Edge background processes re-enabled"`,
+$edgeUndo = Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\MicrosoftEdge\\Main" -Name "AllowPrelaunch" -ErrorAction SilentlyContinue
+if (-not $edgeUndo) { Write-Log "Verified: Edge processes re-enabled" "Green" }
+else { Write-Log "Could not verify: Edge setting" "Yellow" }`,
     },
   ],
 
@@ -773,21 +785,29 @@ $services = @("DiagTrack", "dmwappushservice", "WMPNetworkSvc")
 foreach ($svc in $services) {
   Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
   Set-Service -Name $svc -StartupType Disabled -ErrorAction SilentlyContinue
-  Write-Log "Disabled: $svc"
+  $svcStatus = Get-Service -Name $svc -ErrorAction SilentlyContinue
+  if ($svcStatus.StartType -eq "Disabled") { Write-Log "Verified: $svc disabled" "Green" }
+  else { Write-Log "Could not verify: $svc service" "Yellow" }
 }
 # Registry: set telemetry to basic (minimum)
 New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Force | Out-Null
 Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -Value 0 -Type DWord
-Write-Log "Telemetry disabled"`,
+$telCheck = (Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -ErrorAction SilentlyContinue).AllowTelemetry
+if ($telCheck -eq 0) { Write-Log "Verified: Telemetry registry set" "Green" }
+else { Write-Log "Could not verify: Telemetry registry" "Yellow" }`,
       undoScript: `
 # Restore telemetry services
 $services = @("DiagTrack", "dmwappushservice", "WMPNetworkSvc")
 foreach ($svc in $services) {
   Set-Service -Name $svc -StartupType Manual -ErrorAction SilentlyContinue
-  Write-Log "Restored: $svc"
+  $svcStatus = Get-Service -Name $svc -ErrorAction SilentlyContinue
+  if ($svcStatus.StartType -eq "Manual") { Write-Log "Verified: $svc restored" "Green" }
+  else { Write-Log "Could not verify: $svc service" "Yellow" }
 }
 Remove-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -ErrorAction SilentlyContinue
-Write-Log "Telemetry restored to default"`,
+$telUndo = Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -ErrorAction SilentlyContinue
+if (-not $telUndo) { Write-Log "Verified: Telemetry registry removed" "Green" }
+else { Write-Log "Could not verify: Telemetry registry still present" "Yellow" }`,
     },
     {
       id: "block-tracking",
@@ -853,11 +873,15 @@ Write-Log "Tracking domains removed from hosts file"`,
 # Disable advertising ID
 New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo" -Name "Enabled" -Value 0 -Type DWord
-Write-Log "Advertising ID disabled"`,
+$adsCheck = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo" -Name "Enabled" -ErrorAction SilentlyContinue).Enabled
+if ($adsCheck -eq 0) { Write-Log "Verified: Advertising ID disabled" "Green" }
+else { Write-Log "Could not verify: Advertising ID setting" "Yellow" }`,
       undoScript: `
 # Re-enable advertising ID
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo" -Name "Enabled" -Value 1 -Type DWord
-Write-Log "Advertising ID re-enabled"`,
+$adsUndo = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo" -Name "Enabled" -ErrorAction SilentlyContinue).Enabled
+if ($adsUndo -eq 1) { Write-Log "Verified: Advertising ID re-enabled" "Green" }
+else { Write-Log "Could not verify: Advertising ID setting" "Yellow" }`,
     },
     {
       id: "disable-cortana",
@@ -870,13 +894,17 @@ Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows S
 Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search" -Name "AllowSearchToUseLocation" -Value 0 -Type DWord
 New-Item -Path "HKCU:\\SOFTWARE\\Microsoft\\Personalization\\Settings" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Personalization\\Settings" -Name "AcceptedPrivacyPolicy" -Value 0 -Type DWord
-Write-Log "Cortana disabled"`,
+$corCheck = (Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search" -Name "AllowCortana" -ErrorAction SilentlyContinue).AllowCortana
+if ($corCheck -eq 0) { Write-Log "Verified: Cortana disabled" "Green" }
+else { Write-Log "Could not verify: Cortana setting" "Yellow" }`,
       undoScript: `
 # Re-enable Cortana
 Remove-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search" -Name "AllowCortana" -ErrorAction SilentlyContinue
 Remove-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search" -Name "AllowSearchToUseLocation" -ErrorAction SilentlyContinue
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Personalization\\Settings" -Name "AcceptedPrivacyPolicy" -Value 1 -Type DWord
-Write-Log "Cortana re-enabled"`,
+$corUndo = Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search" -Name "AllowCortana" -ErrorAction SilentlyContinue
+if (-not $corUndo) { Write-Log "Verified: Cortana re-enabled" "Green" }
+else { Write-Log "Could not verify: Cortana setting" "Yellow" }`,
     },
     {
       id: "disable-location",
@@ -888,12 +916,16 @@ New-Item -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityA
 Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location" -Name "Value" -Value "Deny"
 New-Item -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location" -Name "Value" -Value "Deny"
-Write-Log "Location tracking disabled"`,
+$locCheck = (Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location" -Name "Value" -ErrorAction SilentlyContinue).Value
+if ($locCheck -eq "Deny") { Write-Log "Verified: Location tracking disabled" "Green" }
+else { Write-Log "Could not verify: Location setting" "Yellow" }`,
       undoScript: `
 # Re-enable location tracking
 Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location" -Name "Value" -Value "Allow"
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location" -Name "Value" -Value "Allow"
-Write-Log "Location tracking re-enabled"`,
+$locUndo = (Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location" -Name "Value" -ErrorAction SilentlyContinue).Value
+if ($locUndo -eq "Allow") { Write-Log "Verified: Location tracking re-enabled" "Green" }
+else { Write-Log "Could not verify: Location setting" "Yellow" }`,
     },
     {
       id: "disable-clipboard-cloud",
@@ -905,13 +937,17 @@ New-Item -Path "HKCU:\\Software\\Microsoft\\Clipboard" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Clipboard" -Name "EnableClipboardHistory" -Value 0 -Type DWord
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Clipboard" -Name "CloudClipboardEnabled" -Value 0 -Type DWord
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Clipboard" -Name "CloudClipboardValue" -Value 0 -Type DWord
-Write-Log "Clipboard cloud sync disabled"`,
+$clipCheck = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Clipboard" -Name "CloudClipboardEnabled" -ErrorAction SilentlyContinue).CloudClipboardEnabled
+if ($clipCheck -eq 0) { Write-Log "Verified: Clipboard cloud sync disabled" "Green" }
+else { Write-Log "Could not verify: Clipboard setting" "Yellow" }`,
       undoScript: `
 # Re-enable clipboard cloud sync
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Clipboard" -Name "EnableClipboardHistory" -Value 1 -Type DWord
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Clipboard" -Name "CloudClipboardEnabled" -Value 1 -Type DWord
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Clipboard" -Name "CloudClipboardValue" -Value 1 -Type DWord
-Write-Log "Clipboard cloud sync re-enabled"`,
+$clipUndo = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Clipboard" -Name "CloudClipboardEnabled" -ErrorAction SilentlyContinue).CloudClipboardEnabled
+if ($clipUndo -eq 1) { Write-Log "Verified: Clipboard cloud sync re-enabled" "Green" }
+else { Write-Log "Could not verify: Clipboard setting" "Yellow" }`,
     },
   ],
 
@@ -1211,11 +1247,15 @@ Write-Log "Write caching restored to default"`,
       script: `
 Stop-Service -Name "SysMain" -Force -ErrorAction SilentlyContinue
 Set-Service -Name "SysMain" -StartupType Disabled -ErrorAction SilentlyContinue
-Write-Log "Superfetch (SysMain) disabled for SSD"`,
+$sfCheck = Get-Service -Name "SysMain" -ErrorAction SilentlyContinue
+if ($sfCheck.StartType -eq "Disabled") { Write-Log "Verified: Superfetch (SysMain) disabled" "Green" }
+else { Write-Log "Could not verify: SysMain service" "Yellow" }`,
       undoScript: `
 Set-Service -Name "SysMain" -StartupType Manual -ErrorAction SilentlyContinue
 Start-Service -Name "SysMain" -ErrorAction SilentlyContinue
-Write-Log "Superfetch (SysMain) re-enabled"`,
+$sfUndo = Get-Service -Name "SysMain" -ErrorAction SilentlyContinue
+if ($sfUndo.Status -eq "Running") { Write-Log "Verified: Superfetch (SysMain) re-enabled" "Green" }
+else { Write-Log "Could not verify: SysMain service" "Yellow" }`,
     },
     {
       id: "disable-indexing",
@@ -1228,11 +1268,15 @@ if (Test-Path $indexingPath) {
 }
 Stop-Service -Name "WSearch" -Force -ErrorAction SilentlyContinue
 Set-Service -Name "WSearch" -StartupType Disabled -ErrorAction SilentlyContinue
-Write-Log "Search indexing disabled on SSD"`,
+$idxCheck = Get-Service -Name "WSearch" -ErrorAction SilentlyContinue
+if ($idxCheck.StartType -eq "Disabled") { Write-Log "Verified: Search indexing disabled" "Green" }
+else { Write-Log "Could not verify: WSearch service" "Yellow" }`,
       undoScript: `
 Set-Service -Name "WSearch" -StartupType Manual -ErrorAction SilentlyContinue
 Start-Service -Name "WSearch" -ErrorAction SilentlyContinue
-Write-Log "Search indexing re-enabled"`,
+$idxUndo = Get-Service -Name "WSearch" -ErrorAction SilentlyContinue
+if ($idxUndo.Status -eq "Running") { Write-Log "Verified: Search indexing re-enabled" "Green" }
+else { Write-Log "Could not verify: WSearch service" "Yellow" }`,
     },
   ],
 
@@ -1275,10 +1319,14 @@ Write-Log "Screen timeout restored to 10 minutes"`,
       script: `
 New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -Value 1 -Type DWord
-Write-Log "Background apps disabled on battery"`,
+$bgBatCheck = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -ErrorAction SilentlyContinue).GlobalUserDisabled
+if ($bgBatCheck -eq 1) { Write-Log "Verified: Background apps disabled on battery" "Green" }
+else { Write-Log "Could not verify: Background apps setting" "Yellow" }`,
       undoScript: `
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -Value 0 -Type DWord
-Write-Log "Background apps re-enabled"`,
+$bgBatUndo = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -ErrorAction SilentlyContinue).GlobalUserDisabled
+if ($bgBatUndo -eq 0) { Write-Log "Verified: Background apps re-enabled" "Green" }
+else { Write-Log "Could not verify: Background apps setting" "Yellow" }`,
     },
     {
       id: "disable-bluetooth",
@@ -1525,10 +1573,14 @@ Write-Log "Restore color calibration by double-clicking the .reg backup saved to
       script: `
 New-Item -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\HDR" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\HDR" -Name "AllowHDR" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-Write-Log "HDR disabled"`,
+$hdrCheck = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\HDR" -Name "AllowHDR" -ErrorAction SilentlyContinue).AllowHDR
+if ($hdrCheck -eq 0) { Write-Log "Verified: HDR disabled" "Green" }
+else { Write-Log "Could not verify: HDR setting" "Yellow" }`,
       undoScript: `
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\HDR" -Name "AllowHDR" -Value 1 -Type DWord -ErrorAction SilentlyContinue
-Write-Log "HDR re-enabled"`,
+$hdrUndo = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\HDR" -Name "AllowHDR" -ErrorAction SilentlyContinue).AllowHDR
+if ($hdrUndo -eq 1) { Write-Log "Verified: HDR re-enabled" "Green" }
+else { Write-Log "Could not verify: HDR setting" "Yellow" }`,
     },
     {
       id: "detect-monitors",
@@ -1552,7 +1604,9 @@ Write-Log "Hardware scan is self-contained. No undo needed." "Yellow"`,
 Stop-Service -Name "Spooler" -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 Start-Service -Name "Spooler"
-Write-Log "Print spooler restarted"`,
+$spoolCheck = Get-Service -Name "Spooler" -ErrorAction SilentlyContinue
+if ($spoolCheck.Status -eq "Running") { Write-Log "Verified: Print spooler restarted" "Green" }
+else { Write-Log "Could not verify: Print spooler service" "Yellow" }`,
       undoScript: `
 Write-Log "Spooler restart is self-contained. No undo needed." "Yellow"`,
     },
@@ -1565,7 +1619,9 @@ Stop-Service -Name "Spooler" -Force -ErrorAction SilentlyContinue
 $spoolPath = "$env:WINDIR\\System32\\spool\\PRINTERS"
 if (Test-Path $spoolPath) {
   Get-ChildItem -Path $spoolPath -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-  Write-Log "Print queue cleared"
+  $remaining = Get-ChildItem -Path $spoolPath -Force -ErrorAction SilentlyContinue
+  if (-not $remaining) { Write-Log "Verified: Print queue cleared" "Green" }
+  else { Write-Log "Could not verify: Some files remain in queue" "Yellow" }
 }
 Start-Service -Name "Spooler"`,
       undoScript: `
@@ -1747,11 +1803,15 @@ New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -
 Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -Value 0 -Type DWord
 New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo" -Name "Enabled" -Value 0 -Type DWord
-Write-Log "Privacy settings applied"`,
+$privTel = (Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -ErrorAction SilentlyContinue).AllowTelemetry
+if ($privTel -eq 0) { Write-Log "Verified: Privacy settings applied" "Green" }
+else { Write-Log "Could not verify: Privacy settings" "Yellow" }`,
       undoScript: `
 Remove-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -ErrorAction SilentlyContinue
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo" -Name "Enabled" -Value 1 -Type DWord
-Write-Log "Privacy settings restored to default"`,
+$privUndo = Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection" -Name "AllowTelemetry" -ErrorAction SilentlyContinue
+if (-not $privUndo) { Write-Log "Verified: Privacy settings restored" "Green" }
+else { Write-Log "Could not verify: Privacy settings" "Yellow" }`,
     },
     {
       id: "performance-settings",
@@ -1761,11 +1821,15 @@ Write-Log "Privacy settings restored to default"`,
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects" -Name "VisualFXSetting" -Value 2 -Type DWord
 New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -Value 1 -Type DWord
-Write-Log "Performance settings applied"`,
+$perfBg = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -ErrorAction SilentlyContinue).GlobalUserDisabled
+if ($perfBg -eq 1) { Write-Log "Verified: Performance settings applied" "Green" }
+else { Write-Log "Could not verify: Performance settings" "Yellow" }`,
       undoScript: `
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects" -Name "VisualFXSetting" -Value 0 -Type DWord
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -Value 0 -Type DWord
-Write-Log "Performance settings restored to default"`,
+$perfUndo = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications" -Name "GlobalUserDisabled" -ErrorAction SilentlyContinue).GlobalUserDisabled
+if ($perfUndo -eq 0) { Write-Log "Verified: Performance settings restored" "Green" }
+else { Write-Log "Could not verify: Performance settings" "Yellow" }`,
     },
     {
       id: "dark-mode",
@@ -1775,11 +1839,15 @@ Write-Log "Performance settings restored to default"`,
 New-Item -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "SystemUsesLightTheme" -Value 0 -Type DWord
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "AppsUseLightTheme" -Value 0 -Type DWord
-Write-Log "Dark mode enabled"`,
+$darkCheck = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "SystemUsesLightTheme" -ErrorAction SilentlyContinue).SystemUsesLightTheme
+if ($darkCheck -eq 0) { Write-Log "Verified: Dark mode enabled" "Green" }
+else { Write-Log "Could not verify: Dark mode setting" "Yellow" }`,
       undoScript: `
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "SystemUsesLightTheme" -Value 1 -Type DWord
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "AppsUseLightTheme" -Value 1 -Type DWord
-Write-Log "Light mode restored"`,
+$darkUndo = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "SystemUsesLightTheme" -ErrorAction SilentlyContinue).SystemUsesLightTheme
+if ($darkUndo -eq 1) { Write-Log "Verified: Light mode restored" "Green" }
+else { Write-Log "Could not verify: Theme setting" "Yellow" }`,
     },
     {
       id: "disable-onedrive",
@@ -1958,10 +2026,14 @@ Write-Log "WSL Ubuntu unregistered"`,
       script: `
 New-Item -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "SystemUsesLightTheme" -Value 0 -Type DWord
-Write-Log "System dark mode enabled"`,
+$sysDark = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "SystemUsesLightTheme" -ErrorAction SilentlyContinue).SystemUsesLightTheme
+if ($sysDark -eq 0) { Write-Log "Verified: System dark mode enabled" "Green" }
+else { Write-Log "Could not verify: System dark mode" "Yellow" }`,
       undoScript: `
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "SystemUsesLightTheme" -Value 1 -Type DWord
-Write-Log "System light mode restored"`,
+$sysDarkUndo = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "SystemUsesLightTheme" -ErrorAction SilentlyContinue).SystemUsesLightTheme
+if ($sysDarkUndo -eq 1) { Write-Log "Verified: System light mode restored" "Green" }
+else { Write-Log "Could not verify: System theme" "Yellow" }`,
     },
     {
       id: "app-dark",
@@ -1970,10 +2042,14 @@ Write-Log "System light mode restored"`,
       script: `
 New-Item -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "AppsUseLightTheme" -Value 0 -Type DWord
-Write-Log "App dark mode enabled"`,
+$appDark = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "AppsUseLightTheme" -ErrorAction SilentlyContinue).AppsUseLightTheme
+if ($appDark -eq 0) { Write-Log "Verified: App dark mode enabled" "Green" }
+else { Write-Log "Could not verify: App dark mode" "Yellow" }`,
       undoScript: `
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "AppsUseLightTheme" -Value 1 -Type DWord
-Write-Log "App light mode restored"`,
+$appDarkUndo = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "AppsUseLightTheme" -ErrorAction SilentlyContinue).AppsUseLightTheme
+if ($appDarkUndo -eq 1) { Write-Log "Verified: App light mode restored" "Green" }
+else { Write-Log "Could not verify: App theme" "Yellow" }`,
     },
     {
       id: "file-explorer",
@@ -1982,10 +2058,14 @@ Write-Log "App light mode restored"`,
       script: `
 New-Item -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "SystemUsesLightTheme" -Value 0 -Type DWord
-Write-Log "File Explorer dark mode enabled (follows system theme)"`,
+$feCheck = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "SystemUsesLightTheme" -ErrorAction SilentlyContinue).SystemUsesLightTheme
+if ($feCheck -eq 0) { Write-Log "Verified: File Explorer dark mode enabled" "Green" }
+else { Write-Log "Could not verify: File Explorer theme" "Yellow" }`,
       undoScript: `
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "SystemUsesLightTheme" -Value 1 -Type DWord
-Write-Log "File Explorer light mode restored"`,
+$feUndo = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "SystemUsesLightTheme" -ErrorAction SilentlyContinue).SystemUsesLightTheme
+if ($feUndo -eq 1) { Write-Log "Verified: File Explorer light mode restored" "Green" }
+else { Write-Log "Could not verify: File Explorer theme" "Yellow" }`,
     },
     {
       id: "disable-light",
@@ -1994,10 +2074,14 @@ Write-Log "File Explorer light mode restored"`,
       script: `
 New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Personalization" -Force | Out-Null
 Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Personalization" -Name "NoThemesTab" -Value 1 -Type DWord
-Write-Log "Light theme disabled"`,
+$lightCheck = (Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Personalization" -Name "NoThemesTab" -ErrorAction SilentlyContinue).NoThemesTab
+if ($lightCheck -eq 1) { Write-Log "Verified: Light theme disabled" "Green" }
+else { Write-Log "Could not verify: Theme policy" "Yellow" }`,
       undoScript: `
 Remove-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Personalization" -Name "NoThemesTab" -ErrorAction SilentlyContinue
-Write-Log "Theme options restored"`,
+$lightUndo = Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Personalization" -Name "NoThemesTab" -ErrorAction SilentlyContinue
+if (-not $lightUndo) { Write-Log "Verified: Theme options restored" "Green" }
+else { Write-Log "Could not verify: Theme policy removed" "Yellow" }`,
     },
     {
       id: "wallpaper",
@@ -2028,10 +2112,14 @@ Write-Log "Wallpaper reset to default"`,
       script: `
 New-Item -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Search" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Search" -Name "SearchboxTaskbarMode" -Value 0 -Type DWord
-Write-Log "Search bar hidden"`,
+$searchCheck = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Search" -Name "SearchboxTaskbarMode" -ErrorAction SilentlyContinue).SearchboxTaskbarMode
+if ($searchCheck -eq 0) { Write-Log "Verified: Search bar hidden" "Green" }
+else { Write-Log "Could not verify: Search bar setting" "Yellow" }`,
       undoScript: `
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Search" -Name "SearchboxTaskbarMode" -Value 1 -Type DWord
-Write-Log "Search bar restored"`,
+$searchUndo = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Search" -Name "SearchboxTaskbarMode" -ErrorAction SilentlyContinue).SearchboxTaskbarMode
+if ($searchUndo -eq 1) { Write-Log "Verified: Search bar restored" "Green" }
+else { Write-Log "Could not verify: Search bar setting" "Yellow" }`,
     },
     {
       id: "hide-task-view",
@@ -2040,10 +2128,14 @@ Write-Log "Search bar restored"`,
       script: `
 New-Item -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ShowTaskViewButton" -Value 0 -Type DWord
-Write-Log "Task View button hidden"`,
+$tvCheck = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ShowTaskViewButton" -ErrorAction SilentlyContinue).ShowTaskViewButton
+if ($tvCheck -eq 0) { Write-Log "Verified: Task View button hidden" "Green" }
+else { Write-Log "Could not verify: Task View setting" "Yellow" }`,
       undoScript: `
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ShowTaskViewButton" -Value 1 -Type DWord
-Write-Log "Task View button restored"`,
+$tvUndo = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ShowTaskViewButton" -ErrorAction SilentlyContinue).ShowTaskViewButton
+if ($tvUndo -eq 1) { Write-Log "Verified: Task View button restored" "Green" }
+else { Write-Log "Could not verify: Task View setting" "Yellow" }`,
     },
     {
       id: "hide-cortana",
@@ -2052,10 +2144,14 @@ Write-Log "Task View button restored"`,
       script: `
 New-Item -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ShowCortanaButton" -Value 0 -Type DWord
-Write-Log "Cortana button hidden"`,
+$corBtnCheck = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ShowCortanaButton" -ErrorAction SilentlyContinue).ShowCortanaButton
+if ($corBtnCheck -eq 0) { Write-Log "Verified: Cortana button hidden" "Green" }
+else { Write-Log "Could not verify: Cortana button setting" "Yellow" }`,
       undoScript: `
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ShowCortanaButton" -Value 1 -Type DWord
-Write-Log "Cortana button restored"`,
+$corBtnUndo = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ShowCortanaButton" -ErrorAction SilentlyContinue).ShowCortanaButton
+if ($corBtnUndo -eq 1) { Write-Log "Verified: Cortana button restored" "Green" }
+else { Write-Log "Could not verify: Cortana button setting" "Yellow" }`,
     },
     {
       id: "hide-widgets",
@@ -2064,10 +2160,14 @@ Write-Log "Cortana button restored"`,
       script: `
 New-Item -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarDa" -Value 0 -Type DWord
-Write-Log "Widgets button hidden"`,
+$wdgCheck = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarDa" -ErrorAction SilentlyContinue).TaskbarDa
+if ($wdgCheck -eq 0) { Write-Log "Verified: Widgets button hidden" "Green" }
+else { Write-Log "Could not verify: Widgets button setting" "Yellow" }`,
       undoScript: `
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarDa" -Value 1 -Type DWord
-Write-Log "Widgets button restored"`,
+$wdgUndo = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarDa" -ErrorAction SilentlyContinue).TaskbarDa
+if ($wdgUndo -eq 1) { Write-Log "Verified: Widgets button restored" "Green" }
+else { Write-Log "Could not verify: Widgets button setting" "Yellow" }`,
     },
     {
       id: "hide-chat",
@@ -2076,10 +2176,14 @@ Write-Log "Widgets button restored"`,
       script: `
 New-Item -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarMn" -Value 0 -Type DWord
-Write-Log "Chat icon hidden"`,
+$chatCheck = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarMn" -ErrorAction SilentlyContinue).TaskbarMn
+if ($chatCheck -eq 0) { Write-Log "Verified: Chat icon hidden" "Green" }
+else { Write-Log "Could not verify: Chat icon setting" "Yellow" }`,
       undoScript: `
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarMn" -Value 1 -Type DWord
-Write-Log "Chat icon restored"`,
+$chatUndo = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarMn" -ErrorAction SilentlyContinue).TaskbarMn
+if ($chatUndo -eq 1) { Write-Log "Verified: Chat icon restored" "Green" }
+else { Write-Log "Could not verify: Chat icon setting" "Yellow" }`,
     },
     {
       id: "small-icons",
@@ -2088,10 +2192,14 @@ Write-Log "Chat icon restored"`,
       script: `
 New-Item -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarSmallIcons" -Value 1 -Type DWord
-Write-Log "Small taskbar icons enabled"`,
+$iconCheck = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarSmallIcons" -ErrorAction SilentlyContinue).TaskbarSmallIcons
+if ($iconCheck -eq 1) { Write-Log "Verified: Small taskbar icons enabled" "Green" }
+else { Write-Log "Could not verify: Taskbar icons setting" "Yellow" }`,
       undoScript: `
 Set-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarSmallIcons" -Value 0 -Type DWord
-Write-Log "Default taskbar icon size restored"`,
+$iconUndo = (Get-ItemProperty -Path "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarSmallIcons" -ErrorAction SilentlyContinue).TaskbarSmallIcons
+if ($iconUndo -eq 0) { Write-Log "Verified: Default icon size restored" "Green" }
+else { Write-Log "Could not verify: Taskbar icons setting" "Yellow" }`,
     },
   ],
 
@@ -2136,10 +2244,14 @@ Write-Log "Web filtering is managed via family.microsoft.com. Disable it there."
       script: `
 New-Item -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Store" -Force | Out-Null
 Set-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Store" -Name "RequirePinToInstall" -Value 1 -Type DWord
-Write-Log "Store purchases blocked (PIN required for installs)"`,
+$storeCheck = (Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Store" -Name "RequirePinToInstall" -ErrorAction SilentlyContinue).RequirePinToInstall
+if ($storeCheck -eq 1) { Write-Log "Verified: Store PIN requirement enabled" "Green" }
+else { Write-Log "Could not verify: Store policy" "Yellow" }`,
       undoScript: `
 Remove-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Store" -Name "RequirePinToInstall" -ErrorAction SilentlyContinue
-Write-Log "Store purchase PIN requirement removed"`,
+$storeUndo = Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Store" -Name "RequirePinToInstall" -ErrorAction SilentlyContinue
+if (-not $storeUndo) { Write-Log "Verified: Store PIN requirement removed" "Green" }
+else { Write-Log "Could not verify: Store policy removed" "Yellow" }`,
     },
     {
       id: "activity-reports",
@@ -2204,10 +2316,14 @@ Write-Log "Scheduled shutdown removed"`,
       description: "Forces running applications to close before shutdown",
       script: `
 reg add "HKCU\\Control Panel\\Desktop" /v AutoEndTasks /t REG_SZ /d 1 /f | Out-Null
-Write-Log "Auto-end tasks enabled"`,
+$endCheck = (Get-ItemProperty -Path "HKCU:\\Control Panel\\Desktop" -Name "AutoEndTasks" -ErrorAction SilentlyContinue).AutoEndTasks
+if ($endCheck -eq 1) { Write-Log "Verified: Auto-end tasks enabled" "Green" }
+else { Write-Log "Could not verify: AutoEndTasks setting" "Yellow" }`,
       undoScript: `
 reg add "HKCU\\Control Panel\\Desktop" /v AutoEndTasks /t REG_SZ /d 0 /f | Out-Null
-Write-Log "Auto-end tasks disabled"`,
+$endUndo = (Get-ItemProperty -Path "HKCU:\\Control Panel\\Desktop" -Name "AutoEndTasks" -ErrorAction SilentlyContinue).AutoEndTasks
+if ($endUndo -eq 0) { Write-Log "Verified: Auto-end tasks disabled" "Green" }
+else { Write-Log "Could not verify: AutoEndTasks setting" "Yellow" }`,
     },
     {
       id: "warning",
