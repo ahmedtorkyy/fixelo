@@ -98,6 +98,8 @@ else { Write-Log "DNS cache may not be fully cleared" "Yellow" }
 $iconCache = "$env:LOCALAPPDATA\\IconCache.db"
 if (Test-Path $iconCache) {
   Remove-Item -Path $iconCache -Force -ErrorAction SilentlyContinue
+  if (-not (Test-Path $iconCache)) { Write-Log "Verified: Icon cache removed" "Green" }
+  else { Write-Log "Could not verify: Icon cache still present" "Yellow" }
 }
 
 # Stop explorer to clear thumbnail cache
@@ -107,6 +109,9 @@ Get-Process explorer -ErrorAction SilentlyContinue | Stop-Process -Force
 $fontCache = "$env:WINDIR\\ServiceProfiles\\LocalService\\AppData\\Local\\FontCache"
 if (Test-Path $fontCache) {
   Remove-Item -Path "$fontCache\\*" -Recurse -Force -ErrorAction SilentlyContinue
+  $fontItems = Get-ChildItem -Path $fontCache -ErrorAction SilentlyContinue
+  if (-not $fontItems) { Write-Log "Verified: Font cache cleared" "Green" }
+  else { Write-Log "Could not verify: some font cache items remain" "Yellow" }
 }
 
 # Restart explorer
@@ -153,20 +158,29 @@ if ($balanced) {
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects" -Name "VisualFXSetting" -Value 2 -Type DWord
 
 # Disable specific animations
-$animKeys = @(
-  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
-  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects"
-)
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarAnimations" -Value 0 -Type DWord
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "EnableLivePreview" -Value 0 -Type DWord
 
-Write-Log "Visual effects disabled for performance"`,
+# Verify changes
+$vfx = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects" -Name "VisualFXSetting" -ErrorAction SilentlyContinue).VisualFXSetting
+if ($vfx -eq 2) { Write-Log "Verified: VisualFXSetting applied" "Green" }
+else { Write-Log "Could not verify: VisualFXSetting is $vfx" "Yellow" }
+
+$taskbar = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarAnimations" -ErrorAction SilentlyContinue).TaskbarAnimations
+if ($taskbar -eq 0) { Write-Log "Verified: TaskbarAnimations disabled" "Green" }
+else { Write-Log "Could not verify: TaskbarAnimations is $taskbar" "Yellow" }
+
+$livePreview = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "EnableLivePreview" -ErrorAction SilentlyContinue).EnableLivePreview
+if ($livePreview -eq 0) { Write-Log "Verified: EnableLivePreview disabled" "Green" }
+else { Write-Log "Could not verify: EnableLivePreview is $livePreview" "Yellow" }`,
       undoScript: `
 # Restore default visual effects
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects" -Name "VisualFXSetting" -Value 0 -Type DWord
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarAnimations" -Value 1 -Type DWord
 Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "EnableLivePreview" -Value 1 -Type DWord
-Write-Log "Visual effects restored to default"`,
+$vfx = (Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects" -Name "VisualFXSetting" -ErrorAction SilentlyContinue).VisualFXSetting
+if ($vfx -eq 0) { Write-Log "Verified: VisualFXSetting restored" "Green" }
+else { Write-Log "Could not verify: VisualFXSetting is $vfx" "Yellow" }`,
     },
     {
       id: "empty-recycle",
@@ -176,7 +190,9 @@ Write-Log "Visual effects restored to default"`,
 # Empty Recycle Bin using Shell.Application COM object
 $shell = New-Object -ComObject Shell.Application
 $shell.Namespace(0xa).Items() | ForEach-Object { $_.InvokeVerb("delete") }
-Write-Log "Recycle Bin emptied"`,
+$remaining = $shell.Namespace(0xa).Items().Count
+if ($remaining -eq 0) { Write-Log "Verified: Recycle Bin emptied" "Green" }
+else { Write-Log "Could not verify: $remaining item(s) remain in Recycle Bin" "Yellow" }`,
       undoScript: `
 # Recycle Bin contents cannot be restored
 Write-Log "Recycle Bin emptying cannot be undone. Deleted files are gone permanently." "Yellow"`,
