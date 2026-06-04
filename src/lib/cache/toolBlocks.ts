@@ -666,18 +666,12 @@ Write-Log "Default device is a user preference. No undo needed." "Yellow"`,
     },
     {
       id: "reset-volume",
-      label: "Reset Volume Levels",
-      description: "Resets system volume to 80% via COM and opens Sound settings",
+      label: "Open Sound Settings",
+      description: "Opens the Sound control panel to check volume, output, and audio devices",
       script: `
-Write-Log "Resetting system volume..."
-$snd = New-Object -ComObject "WMPlayer.OCX"
-$snd.settings.volume = 80
-$actual = $snd.settings.volume
-$snd.close()
-if ($actual -eq 80) { Write-Log "Verified: system volume set to 80%" "Green" }
-else { Write-Log "Could not verify: volume is $actual" "Yellow" }
+Write-Log "Opening Sound settings so you can check your volume and output device..."
 Start-Process rundll32.exe -ArgumentList "shell32.dll,Control_RunDLL mmsys.cpl,,0"
-Write-Log "Sound settings opened for further adjustments." "Yellow"`,
+Write-Log "Sound settings opened." "Yellow"`,
       undoScript: `
 Write-Log "Volume level is a user preference. Previous level is not stored." "Yellow"`,
     },
