@@ -50,6 +50,7 @@ export type FixFlowStep =
   | "failure-input"
   | "diagnosis-loading"
   | "diagnosis-result"
+  | "not-windows"
 
 export interface VerifyResult {
   verified: boolean

@@ -13,57 +13,114 @@ interface RequestBody {
 
 const OPENROUTER_MODELS = [
   "meta-llama/llama-3.3-70b-instruct:free",
+  "qwen/qwen3-coder:free",
+  "meta-llama/llama-4-scout:free",
   "google/gemma-4-31b-it:free",
 ]
 
 const GROQ_MODELS = [
   "llama-3.3-70b-versatile",
+  "meta-llama/llama-4-scout-17b-16e-instruct",
   "llama-3.1-8b-instant",
   "gemma2-9b-it",
 ]
 
 async function callOpenRouter(apiKey: string, messages: ChatMessage[]): Promise<string> {
   for (const model of OPENROUTER_MODELS) {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: 8192 }),
-    })
-    if (!res.ok) {
-      const body = await res.text().catch(() => "")
-      if (res.status === 429 || res.status === 413) continue
-      throw new Error(`OpenRouter ${res.status}: ${body.slice(0, 200)}`)
+    const controller = new AbortController()
+    const t = setTimeout(() => controller.abort(), 15000)
+    let usedJsonMode = true
+    try {
+      const body: Record<string, unknown> = { model, messages, temperature: 0.3, max_tokens: 16384, response_format: { type: "json_object" } }
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => "")
+        if (res.status === 429 || res.status === 413) continue
+        if (res.status === 400 && bodyText.includes("response_format")) {
+          // Model doesn't support json_object mode — retry once without it
+          usedJsonMode = false
+          const retryBody = { model, messages, temperature: 0.3, max_tokens: 16384 }
+          const retryRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify(retryBody),
+            signal: controller.signal,
+          })
+          if (!retryRes.ok) {
+            if (retryRes.status === 429 || retryRes.status === 413) continue
+            continue
+          }
+          const data: any = await retryRes.json()
+          const content: string = data.choices?.[0]?.message?.content ?? ""
+          if (content?.trim()) return content
+          continue
+        }
+        continue
+      }
+      const data: any = await res.json()
+      const content: string = data.choices?.[0]?.message?.content ?? ""
+      if (content?.trim()) return content
+    } catch {
+      continue
+    } finally {
+      clearTimeout(t)
     }
-    const data: any = await res.json()
-    const content: string = data.choices?.[0]?.message?.content ?? ""
-    if (content?.trim()) return content
   }
-  throw new Error("All OpenRouter models failed or rate limited")
+  throw new Error("All OpenRouter models failed or timed out")
 }
 
 async function callGroq(apiKey: string, messages: ChatMessage[]): Promise<string> {
   for (const model of GROQ_MODELS) {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: 8192 }),
-    })
-    if (!res.ok) {
-      const body = await res.text().catch(() => "")
-      if (res.status === 429 || res.status === 413) continue
-      throw new Error(`Groq ${res.status}: ${body.slice(0, 200)}`)
+    const controller = new AbortController()
+    const t = setTimeout(() => controller.abort(), 15000)
+    let usedJsonMode = true
+    try {
+      const body: Record<string, unknown> = { model, messages, temperature: 0.3, max_tokens: 16384, response_format: { type: "json_object" } }
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => "")
+        if (res.status === 429 || res.status === 413) continue
+        if (res.status === 400 && bodyText.includes("response_format")) {
+          // Model doesn't support json_object mode — retry once without it
+          usedJsonMode = false
+          const retryBody = { model, messages, temperature: 0.3, max_tokens: 16384 }
+          const retryRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify(retryBody),
+            signal: controller.signal,
+          })
+          if (!retryRes.ok) {
+            if (retryRes.status === 429 || retryRes.status === 413) continue
+            continue
+          }
+          const data: any = await retryRes.json()
+          const content: string = data.choices?.[0]?.message?.content ?? ""
+          if (content?.trim()) return content
+          continue
+        }
+        continue
+      }
+      const data: any = await res.json()
+      const content: string = data.choices?.[0]?.message?.content ?? ""
+      if (content?.trim()) return content
+    } catch {
+      continue
+    } finally {
+      clearTimeout(t)
     }
-    const data: any = await res.json()
-    const content: string = data.choices?.[0]?.message?.content ?? ""
-    if (content?.trim()) return content
   }
-  throw new Error("All Groq models failed or rate limited")
+  throw new Error("All Groq models failed or timed out")
 }
 
 export async function onRequest(context: {

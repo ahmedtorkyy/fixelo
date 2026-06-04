@@ -36,6 +36,11 @@ export function useScriptGenerator() {
       setCurrentStep("loading")
       const result = await generateScript(problemDescription)
       if (result) {
+        // Empty fixScript = AI says "not a Windows problem"
+        if (!result.fixScript) {
+          setCurrentStep("not-windows")
+          return result
+        }
         setCurrentStep("result")
         const id = generateId()
         lastHistoryIdRef.current = id

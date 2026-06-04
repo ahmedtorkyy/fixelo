@@ -55,6 +55,20 @@ export default function HomePage() {
 
   return (
     <div className="py-12 sm:py-16 px-4 sm:px-6">
+      {currentStep === "not-windows" && fixResult && (
+        <div className="max-w-3xl mx-auto text-center space-y-6" role="region" aria-live="polite">
+          <h2 className="text-2xl font-bold text-white">Not a Windows problem I can fix</h2>
+          <p className="text-surface-400 text-lg">
+            {fixResult.problemSummary || "That doesn't look like a Windows PC problem I can fix. Try describing a PC issue — or browse the tools."}
+          </p>
+          <div className="pt-2">
+            <button onClick={reset} className="text-sm text-surface-400 hover:text-white underline">
+              Try another problem
+            </button>
+          </div>
+        </div>
+      )}
+
       {currentStep === "input" && (
         <>
           <ProblemInput onSubmit={generateFix} loading={false} />

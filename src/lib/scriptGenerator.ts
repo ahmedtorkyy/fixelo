@@ -134,12 +134,14 @@ Read-Host "Press Enter to close"`
 }
 
 function parseFixResult(json: Record<string, unknown>): FixResult {
+  const fixScript = String(json.fixScript ?? "")
+  const undoScript = String(json.undoScript ?? "")
   return {
     problemSummary: String(json.problemSummary ?? ""),
     whatItDoes: String(json.whatItDoes ?? ""),
     whatItDoesNotTouch: String(json.whatItDoesNotTouch ?? ""),
-    fixScript: ensureLogFooter(String(json.fixScript ?? "")),
-    undoScript: ensureLogFooter(String(json.undoScript ?? "")),
+    fixScript: fixScript ? ensureLogFooter(fixScript) : fixScript,
+    undoScript: undoScript ? ensureLogFooter(undoScript) : undoScript,
     scriptSafetyNotes: String(json.scriptSafetyNotes ?? ""),
   }
 }
@@ -174,6 +176,8 @@ async function attemptWithRetry(
     }
 
     const result = parseFixResult(parsed)
+    // Empty fixScript = model said "not a Windows problem" — return immediately, no retries
+    if (!result.fixScript) return result
     try {
       validateScriptForBadCmdlets(result.fixScript)
       validateScriptForBadCmdlets(result.undoScript)

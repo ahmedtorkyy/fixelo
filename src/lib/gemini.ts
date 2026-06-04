@@ -3,7 +3,7 @@
 
 async function callProxy(prompt: string, provider: "openrouter" | "groq"): Promise<string> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 30000)
+  const timeout = setTimeout(() => controller.abort(), 45000)
 
   const res = await fetch("/api/ai", {
     method: "POST",
