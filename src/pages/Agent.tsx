@@ -170,7 +170,6 @@ export default function AgentPage() {
     handleQuickStart,
     handleDownloadFix,
     handleDownloadUndo,
-    handleUseTool,
     startNewConversation,
     loadConversation,
     handleDeleteConversation,

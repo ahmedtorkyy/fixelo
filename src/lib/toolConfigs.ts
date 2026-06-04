@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react"
-import { Gamepad2, Shield, ShieldCheck, Monitor, Rocket, Wifi, CalendarCheck, WifiOff, RefreshCw, Gauge, AlertTriangle, Volume2, MonitorSmartphone, FileWarning, HardDrive, Printer, Usb, Battery, Zap, Moon, LayoutDashboard, Timer, FolderSync, Cpu, Package, Code, Lock, Search, Bluetooth, FolderSearch, Clock, Wrench, Store, Keyboard, Camera, List, Router, KeyRound, Binary, Type, Fingerprint, Globe, CalendarDays, AppWindow, FileType, SlidersHorizontal } from "lucide-react"
+import { Gamepad2, Shield, ShieldCheck, Monitor, Rocket, Wifi, CalendarCheck, WifiOff, RefreshCw, Gauge, AlertTriangle, Volume2, MonitorSmartphone, FileWarning, HardDrive, Printer, Usb, Battery, Zap, Moon, LayoutDashboard, Timer, FolderSync, Cpu, Package, Code, Lock, Search, Bluetooth, FolderSearch, Clock, Wrench, Store, Keyboard, Camera, List, Router, KeyRound, Binary, Type, Fingerprint, CalendarDays, AppWindow, FileType, SlidersHorizontal } from "lucide-react"
 
 export interface ToolOption {
   id: string

@@ -38,7 +38,7 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
   "wifi": ["wifi-network-fixer"],
   "wi-fi": ["wifi-network-fixer"],
   "wireless": ["wifi-network-fixer"],
-  "dns": ["network-optimizer", "wifi-network-fixer"],
+  "dns": ["network-optimizer", "wifi-network-fixer", "network-stack-reset"],
   "internet": ["network-optimizer", "wifi-network-fixer"],
   "connection": ["network-optimizer", "wifi-network-fixer"],
 
@@ -259,7 +259,6 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
   "not detected": ["usb-device-fix", "bluetooth-fix"],
   "blue screen of death": ["blue-screen-recovery"],
   "system crash": ["blue-screen-recovery"],
-  "screen flickering": ["display-resolution-fix"],
   "screen size": ["display-resolution-fix"],
   "system file": ["corrupted-files-fix"],
   "system files": ["corrupted-files-fix"],
@@ -378,7 +377,6 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
   "audio problem": ["audio-fix"],
   "sound issue": ["audio-fix"],
   "audio issue": ["audio-fix"],
-  "can't hear": ["audio-fix"],
   "can't hear anything": ["audio-fix"],
   "hear nothing": ["audio-fix"],
   "realtek": ["audio-fix"],
@@ -419,7 +417,6 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
   "running slow": ["slow-pc-fix"],
   "pc sluggish": ["slow-pc-fix"],
   "system sluggish": ["slow-pc-fix"],
-  "computer freeze": ["slow-pc-fix"],
   "system lag": ["slow-pc-fix"],
   "pc lagging": ["slow-pc-fix"],
   "computer lagging": ["slow-pc-fix"],
@@ -597,7 +594,6 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
   "windows crashed": ["blue-screen-recovery"],
   "unexpected shutdown": ["blue-screen-recovery"],
   "kernel error": ["blue-screen-recovery"],
-  "system crash": ["blue-screen-recovery"],
   "machine crash": ["blue-screen-recovery"],
 
   // === CORRUPTED FILES ===
@@ -617,7 +613,6 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
   "graphics driver": ["driver-manager"],
   "gpu driver": ["driver-manager"],
   "network driver": ["driver-manager"],
-  "audio driver": ["driver-manager", "audio-fix"],
   "driver problem": ["driver-manager"],
   "driver error": ["driver-manager"],
   "driver conflict": ["driver-manager"],
@@ -784,7 +779,6 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
 
   // === NETWORK STACK RESET ===
   "winsock": ["network-stack-reset"],
-  "dns": ["network-stack-reset"],
   "reset network": ["network-stack-reset"],
   "network stack": ["network-stack-reset"],
   "flush dns": ["network-stack-reset"],

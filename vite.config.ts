@@ -92,7 +92,7 @@ async function callOpenRouter(
       const body = await res.text()
       throw new Error(`OpenRouter ${res.status}: ${body.slice(0, 200)}`)
     }
-    const data = await res.json()
+    const data = await res.json() as { choices?: { message?: { content?: string } }[] }
     const c: string = data.choices?.[0]?.message?.content ?? ""
     if (c?.trim()) return c
   }
@@ -122,7 +122,7 @@ async function callGroq(
       const body = await res.text()
       throw new Error(`Groq ${res.status}: ${body.slice(0, 200)}`)
     }
-    const data = await res.json()
+    const data = await res.json() as { choices?: { message?: { content?: string } }[] }
     const c: string = data.choices?.[0]?.message?.content ?? ""
     if (c?.trim()) return c
   }

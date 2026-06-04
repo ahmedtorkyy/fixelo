@@ -163,7 +163,7 @@ export function useAgent() {
     }
   }, [conversation])
 
-  const handleUseTool = useCallback((slug: string) => {
+  const handleUseTool = useCallback((_slug: string) => {
     // Navigate to the tool page — handled by the caller via window.location
   }, [])
 
