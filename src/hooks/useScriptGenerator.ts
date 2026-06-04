@@ -21,6 +21,7 @@ export function useScriptGenerator() {
     error,
     generateScript,
     generateDiagnosisFromLog,
+    setResult,
     reset: resetGemini,
   } = useGemini()
 
@@ -62,6 +63,7 @@ export function useScriptGenerator() {
       const route = routeProblem(problemDescription)
       if (route.type === "cached" && route.fixResult) {
         setCurrentStep("result")
+        setResult(route.fixResult)
         const id = generateId()
         lastHistoryIdRef.current = id
         const entry: HistoryEntry = {

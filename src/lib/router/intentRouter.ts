@@ -13,16 +13,16 @@ export function routeProblem(problem: string): RouteResult {
   const trimmed = problem.trim()
   if (!trimmed) return { type: "ai" }
 
-  // 1. Try exact cached fix first (zero AI cost)
-  const cached = lookupCachedFix(trimmed)
-  if (cached) {
-    return { type: "cached", fixResult: cached }
-  }
-
-  // 2. Try keyword-based tool suggestions
+  // 1. Try keyword-based tool suggestions first
   const suggestions = suggestTools(trimmed)
   if (suggestions.length > 0 && suggestions[0].confidence >= 0.4) {
     return { type: "tool-suggestion", toolSuggestions: suggestions }
+  }
+
+  // 2. Try exact cached fix (zero AI cost)
+  const cached = lookupCachedFix(trimmed)
+  if (cached) {
+    return { type: "cached", fixResult: cached }
   }
 
   // 3. Fall back to AI
@@ -36,15 +36,15 @@ export async function routeProblemWithAI(
   const trimmed = problem.trim()
   if (!trimmed) return { type: "ai" }
 
-  // 1. Try exact cached fix first
-  const cached = lookupCachedFix(trimmed)
-  if (cached) return { type: "cached", fixResult: cached }
-
-  // 2. Try keyword suggestions
+  // 1. Try keyword suggestions first
   const suggestions = suggestTools(trimmed)
   if (suggestions.length > 0 && suggestions[0].confidence >= 0.6) {
     return { type: "tool-suggestion", toolSuggestions: suggestions }
   }
+
+  // 2. Try exact cached fix
+  const cached = lookupCachedFix(trimmed)
+  if (cached) return { type: "cached", fixResult: cached }
 
   // 3. If weak keyword match, try cheap AI classification
   if (suggestions.length > 0 && suggestions[0].confidence >= 0.2) {

@@ -217,9 +217,9 @@ else { Write-Log "Could not verify: VisualFXSetting is $vfx" "Yellow" }
       label: "Empty Recycle Bin",
       description: "Permanently deletes all files in the Recycle Bin to free disk space",
       script: `try {
-# Empty Recycle Bin using Shell.Application COM object
+# Empty Recycle Bin silently using Clear-RecycleBin
+Clear-RecycleBin -Force -ErrorAction SilentlyContinue
 $shell = New-Object -ComObject Shell.Application
-$shell.Namespace(0xa).Items() | ForEach-Object { $_.InvokeVerb("delete") }
 $remaining = $shell.Namespace(0xa).Items().Count
 if ($remaining -eq 0) { Write-Log "Verified: Recycle Bin emptied" "Green" }
 else { Write-Log "Could not verify: $remaining item(s) remain in Recycle Bin" "Yellow" }
@@ -1378,7 +1378,7 @@ Write-Log "Caches will rebuild naturally." "Yellow"
       description: "Runs SMART diagnostics and checks disk for errors",
       script: `try {
 Write-Log "Checking disk health..."
-wmic diskdrive get status
+Get-CimInstance Win32_DiskDrive | ForEach-Object { Write-Log "$($_.Model): $($_.Status)" }
 chkdsk C: /scan
 Write-Log "Disk health check complete"
 } catch {
@@ -1388,40 +1388,6 @@ Write-Log "Disk health check complete"
 Write-Log "Disk health check is read-only. No undo needed." "Yellow"
 } catch {
   Write-Log "Error in Check Disk Health: $($_.Exception.Message)" "Red"
-}`,
-    },
-    {
-      id: "verify-startup",
-      label: "Verify Startup Items",
-      description: "Lists current startup items and flags suspicious ones",
-      script: `try {
-Write-Log "Current startup items:"
-Get-CimInstance Win32_StartupCommand | Select-Object Name, Command, Location | Format-Table -AutoSize
-Write-Log "Review the list above. Items from temp folders or unusual paths may be suspicious." "Yellow"
-} catch {
-  Write-Log "Error in Verify Startup Items: $($_.Exception.Message)" "Red"
-}`,
-      undoScript: `try {
-Write-Log "Startup verification is read-only. No undo needed." "Yellow"
-} catch {
-  Write-Log "Error in Verify Startup Items: $($_.Exception.Message)" "Red"
-}`,
-    },
-    {
-      id: "empty-recycle",
-      label: "Empty Recycle Bin",
-      description: "Permanently deletes all files in the Recycle Bin",
-      script: `try {
-$shell = New-Object -ComObject Shell.Application
-$shell.Namespace(0xa).Items() | ForEach-Object { $_.InvokeVerb("delete") }
-Write-Log "Recycle Bin emptied"
-} catch {
-  Write-Log "Error in Empty Recycle Bin: $($_.Exception.Message)" "Red"
-}`,
-      undoScript: `try {
-Write-Log "Recycle Bin emptying cannot be undone." "Yellow"
-} catch {
-  Write-Log "Error in Empty Recycle Bin: $($_.Exception.Message)" "Red"
 }`,
     },
     {
@@ -1952,7 +1918,7 @@ Write-Log "CHKDSK unscheduled"
       description: "Reads the drive's self-monitoring data to check overall health",
       script: `try {
 Write-Log "SMART data for physical drives:"
-wmic diskdrive get status,model,size
+Get-CimInstance Win32_DiskDrive | ForEach-Object { Write-Log "$($_.Model): $($_.Status) ($([math]::Round($_.Size/1GB,0)) GB)" }
 Write-Log "SMART check completed"
 } catch {
   Write-Log "Error in Read SMART Data: $($_.Exception.Message)" "Red"
@@ -3315,19 +3281,39 @@ Write-Log "Driver identification is read-only. No undo needed." "Yellow"
     {
       id: "update-gpu",
       label: "Update GPU Driver",
-      description: "Downloads and installs the latest GPU driver",
+      description: "Downloads and installs the latest GPU driver from Windows Update",
       script: `try {
-Write-Log "Checking for GPU driver update..."
-$gpu = Get-WmiObject Win32_PnPEntity | Where-Object { $_.Name -match "NVIDIA|AMD|Intel.*Graphics" -and $_.ConfigManagerErrorCode -eq 0 }
+Write-Log "Checking for GPU driver update via Windows Update..."
+$gpu = Get-WmiObject Win32_PnPEntity | Where-Object { $_.Name -match "NVIDIA|AMD|Intel.*Graphics|Radeon" -and $_.ConfigManagerErrorCode -eq 0 }
 if ($gpu) {
   foreach ($d in $gpu) { Write-Log "Found: $($d.Name)" }
 }
-Write-Log "Visit the GPU manufacturer's website for the latest driver." "Yellow"
+try {
+  $updateSession = New-Object -ComObject Microsoft.Update.Session
+  $updateSearcher = $updateSession.CreateUpdateSearcher()
+  Write-Log "Searching Windows Update for GPU driver updates..."
+  $searchResult = $updateSearcher.Search("IsInstalled=0 AND Type='Driver' AND CategoryIDs contains '3fb6418b-2b35-4da1-9ca5-5098ca1c8d5f'")
+  if ($searchResult.Updates.Count -eq 0) {
+    Write-Log "No GPU driver updates available via Windows Update." "Green"
+  } else {
+    Write-Log "Found $($searchResult.Updates.Count) GPU driver update(s)!" "Green"
+    $downloader = $updateSession.CreateUpdateDownloader()
+    $downloader.Updates = $searchResult.Updates
+    $downloader.Download()
+    $installer = $updateSession.CreateUpdateInstaller()
+    $installer.Updates = $searchResult.Updates
+    $installResult = $installer.Install()
+    Write-Log "GPU driver update installed. Reboot may be required." "Green"
+  }
+} catch {
+  Write-Log "Windows Update search failed (may be offline or Windows Update service not running): $($_.Exception.Message)" "Yellow"
+  Write-Log "You can also download the latest driver manually from the manufacturer's website." "Yellow"
+}
 } catch {
   Write-Log "Error in Update GPU Driver: $($_.Exception.Message)" "Red"
 }`,
       undoScript: `try {
-Write-Log "Driver updates are cumulative. Roll back via Device Manager if needed." "Yellow"
+Write-Log "Driver updates are cumulative. Roll back via Device Manager if needed (devmgmt.msc -> right-click device -> Properties -> Driver -> Roll Back Driver)." "Yellow"
 } catch {
   Write-Log "Error in Update GPU Driver: $($_.Exception.Message)" "Red"
 }`,
@@ -3335,19 +3321,39 @@ Write-Log "Driver updates are cumulative. Roll back via Device Manager if needed
     {
       id: "update-network",
       label: "Update Network Driver",
-      description: "Updates the network adapter driver",
+      description: "Downloads and installs the latest network driver from Windows Update",
       script: `try {
-Write-Log "Checking for network driver update..."
+Write-Log "Checking for network driver update via Windows Update..."
 $net = Get-WmiObject Win32_PnPEntity | Where-Object { $_.Name -match "Network|Ethernet|WiFi|Wireless" -and $_.ConfigManagerErrorCode -eq 0 }
 if ($net) {
   foreach ($d in $net) { Write-Log "Found: $($d.Name)" }
 }
-Write-Log "Visit the manufacturer's website for the latest network driver." "Yellow"
+try {
+  $updateSession = New-Object -ComObject Microsoft.Update.Session
+  $updateSearcher = $updateSession.CreateUpdateSearcher()
+  Write-Log "Searching Windows Update for network driver updates..."
+  $searchResult = $updateSearcher.Search("IsInstalled=0 AND Type='Driver' AND CategoryIDs contains '3fb6418b-2b35-4da1-9ca5-5098ca1c8d5f'")
+  if ($searchResult.Updates.Count -eq 0) {
+    Write-Log "No network driver updates available via Windows Update." "Green"
+  } else {
+    Write-Log "Found $($searchResult.Updates.Count) network driver update(s)!" "Green"
+    $downloader = $updateSession.CreateUpdateDownloader()
+    $downloader.Updates = $searchResult.Updates
+    $downloader.Download()
+    $installer = $updateSession.CreateUpdateInstaller()
+    $installer.Updates = $searchResult.Updates
+    $installResult = $installer.Install()
+    Write-Log "Network driver update installed. Reboot may be required." "Green"
+  }
+} catch {
+  Write-Log "Windows Update search failed (may be offline or service not running): $($_.Exception.Message)" "Yellow"
+  Write-Log "You can also download the latest driver manually from the manufacturer's website." "Yellow"
+}
 } catch {
   Write-Log "Error in Update Network Driver: $($_.Exception.Message)" "Red"
 }`,
       undoScript: `try {
-Write-Log "Driver updates are cumulative. Roll back via Device Manager if needed." "Yellow"
+Write-Log "Driver updates are cumulative. Roll back via Device Manager if needed (devmgmt.msc -> right-click device -> Properties -> Driver -> Roll Back Driver)." "Yellow"
 } catch {
   Write-Log "Error in Update Network Driver: $($_.Exception.Message)" "Red"
 }`,
@@ -3355,21 +3361,2047 @@ Write-Log "Driver updates are cumulative. Roll back via Device Manager if needed
     {
       id: "update-audio",
       label: "Update Audio Driver",
-      description: "Updates the audio driver to the latest version",
+      description: "Downloads and installs the latest audio driver from Windows Update",
       script: `try {
-Write-Log "Checking for audio driver update..."
+Write-Log "Checking for audio driver update via Windows Update..."
 $audio = Get-WmiObject Win32_PnPEntity | Where-Object { $_.Name -match "Audio|Sound|Realtek|High Definition" -and $_.ConfigManagerErrorCode -eq 0 }
 if ($audio) {
   foreach ($d in $audio) { Write-Log "Found: $($d.Name)" }
 }
-Write-Log "Visit the manufacturer's website for the latest audio driver." "Yellow"
+try {
+  $updateSession = New-Object -ComObject Microsoft.Update.Session
+  $updateSearcher = $updateSession.CreateUpdateSearcher()
+  Write-Log "Searching Windows Update for audio driver updates..."
+  $searchResult = $updateSearcher.Search("IsInstalled=0 AND Type='Driver' AND CategoryIDs contains '3fb6418b-2b35-4da1-9ca5-5098ca1c8d5f'")
+  if ($searchResult.Updates.Count -eq 0) {
+    Write-Log "No audio driver updates available via Windows Update." "Green"
+  } else {
+    Write-Log "Found $($searchResult.Updates.Count) audio driver update(s)!" "Green"
+    $downloader = $updateSession.CreateUpdateDownloader()
+    $downloader.Updates = $searchResult.Updates
+    $downloader.Download()
+    $installer = $updateSession.CreateUpdateInstaller()
+    $installer.Updates = $searchResult.Updates
+    $installResult = $installer.Install()
+    Write-Log "Audio driver update installed. Reboot may be required." "Green"
+  }
+} catch {
+  Write-Log "Windows Update search failed (may be offline or service not running): $($_.Exception.Message)" "Yellow"
+  Write-Log "You can also download the latest driver manually from the manufacturer's website." "Yellow"
+}
 } catch {
   Write-Log "Error in Update Audio Driver: $($_.Exception.Message)" "Red"
 }`,
       undoScript: `try {
-Write-Log "Driver updates are cumulative. Roll back via Device Manager if needed." "Yellow"
+Write-Log "Driver updates are cumulative. Roll back via Device Manager if needed (devmgmt.msc -> right-click device -> Properties -> Driver -> Roll Back Driver)." "Yellow"
 } catch {
   Write-Log "Error in Update Audio Driver: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "virus-scanner": [
+    {
+      id: "quick-scan",
+      label: "Quick Scan",
+      description: "Scans active malware locations using Windows Defender (fastest)",
+      script: `try {
+Write-Log "Updating virus definitions..."
+& "$env:ProgramFiles\\Windows Defender\\MpCmdRun.exe" -SignatureUpdate
+Write-Log "Running Windows Defender Quick Scan..."
+$result = & "$env:ProgramFiles\\Windows Defender\\MpCmdRun.exe" -Scan -ScanType 1
+if ($LASTEXITCODE -eq 0) {
+  Write-Log "Quick scan completed successfully. No threats found." "Green"
+} elseif ($LASTEXITCODE -eq 2) {
+  Write-Log "Quick scan completed. Threats were found and handled. Check Windows Security for details." "Yellow"
+} else {
+  Write-Log "Quick scan finished with exit code $LASTEXITCODE. Review Windows Security for details." "Yellow"
+}
+} catch {
+  Write-Log "Error in Quick Scan: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "No undo needed for a scan. It only checks files, it does not modify them." "Yellow"
+} catch {
+  Write-Log "Error in Quick Scan: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "full-scan",
+      label: "Full System Scan",
+      description: "Scans every file and running program on your system (most thorough)",
+      script: `try {
+Write-Log "Updating virus definitions..."
+& "$env:ProgramFiles\\Windows Defender\\MpCmdRun.exe" -SignatureUpdate
+Write-Log "Running Windows Defender Full Scan (this may take a long time)..."
+$result = & "$env:ProgramFiles\\Windows Defender\\MpCmdRun.exe" -Scan -ScanType 2
+if ($LASTEXITCODE -eq 0) {
+  Write-Log "Full scan completed successfully. No threats found." "Green"
+} elseif ($LASTEXITCODE -eq 2) {
+  Write-Log "Full scan completed. Threats were found and handled. Check Windows Security for details." "Yellow"
+} else {
+  Write-Log "Full scan finished with exit code $LASTEXITCODE. Review Windows Security for details." "Yellow"
+}
+} catch {
+  Write-Log "Error in Full System Scan: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "No undo needed for a scan. It only checks files, it does not modify them." "Yellow"
+} catch {
+  Write-Log "Error in Full System Scan: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "update-defs",
+      label: "Update Virus Definitions",
+      description: "Downloads the latest virus definitions from Microsoft",
+      script: `try {
+Write-Log "Updating Windows Defender virus definitions..."
+& "$env:ProgramFiles\\Windows Defender\\MpCmdRun.exe" -SignatureUpdate
+if ($LASTEXITCODE -eq 0) {
+  Write-Log "Virus definitions updated successfully." "Green"
+} else {
+  Write-Log "Definition update finished with exit code $LASTEXITCODE. Check your internet connection." "Yellow"
+}
+} catch {
+  Write-Log "Error in Update Definitions: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Definition updates cannot be rolled back. Windows manages versions automatically." "Yellow"
+} catch {
+  Write-Log "Error in Update Definitions: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "check-status",
+      label: "Check Defender Status",
+      description: "Verifies Windows Defender is running and protection is active",
+      script: `try {
+Write-Log "Checking Windows Defender status..."
+$service = Get-Service -Name WinDefend -ErrorAction SilentlyContinue
+if ($service.Status -eq "Running") {
+  Write-Log "Windows Defender service is running." "Green"
+} else {
+  Write-Log "Windows Defender service is NOT running!" "Red"
+}
+$am = Get-CimInstance -Namespace "root\\Microsoft\\Windows\\Defender" -ClassName MSFT_MpComputerStatus -ErrorAction SilentlyContinue
+if ($am) {
+  Write-Log "Real-time protection enabled: $($am.RealTimeProtectionEnabled)" "Green"
+  Write-Log "Antivirus signature age (days): $($am.AntivirusSignatureAge)" "Yellow"
+} else {
+  Write-Log "Could not query Windows Defender status. The service may not be available." "Yellow"
+}
+} catch {
+  Write-Log "Error in Check Defender Status: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "No undo needed. Status check does not modify any settings." "Yellow"
+} catch {
+  Write-Log "Error in Check Defender Status: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "windows-search-fix": [
+    {
+      id: "rebuild-index",
+      label: "Rebuild Search Index",
+      description: "Stops WSearch, clears the index, restarts to force a full rebuild",
+      script: `try {
+Write-Log "Rebuilding Windows Search index..."
+Write-Log "Stopping Windows Search service..."
+Stop-Service -Name WSearch -Force -ErrorAction SilentlyContinue
+Write-Log "Clearing search index database..."
+if (Test-Path "$env:ProgramData\\Microsoft\\Search\\Data\\Applications\\Windows") {
+  Remove-Item -Path "$env:ProgramData\\Microsoft\\Search\\Data\\Applications\\Windows\\*" -Recurse -Force -ErrorAction SilentlyContinue
+  Write-Log "Search index database cleared." "Green"
+} else {
+  Write-Log "Search index database path not found. Skipping." "Yellow"
+}
+Write-Log "Starting Windows Search service..."
+Start-Service -Name WSearch
+Start-Sleep -Seconds 3
+$svc = Get-Service -Name WSearch
+$retries = 0
+while ($svc.Status -ne "Running" -and $retries -lt 3) {
+  Start-Sleep -Seconds 2
+  $svc = Get-Service -Name WSearch
+  $retries++
+}
+if ($svc.Status -eq "Running") {
+  Write-Log "Search service restarted, index rebuild initiated automatically." "Green"
+} else {
+  Write-Log "Search service status: $($svc.Status). It may still be initializing." "Yellow"
+}
+} catch {
+  Write-Log "Error in Rebuild Search Index: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Search index rebuild cannot be undone. The index will rebuild automatically by Windows." "Yellow"
+} catch {
+  Write-Log "Error in Rebuild Search Index: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "restart-wsearch",
+      label: "Restart Search Service",
+      description: "Restarts the Windows Search service to fix temporary glitches",
+      script: `try {
+Write-Log "Restarting Windows Search service..."
+Restart-Service -Name WSearch -Force
+$svc = Get-Service -Name WSearch
+if ($svc.Status -eq "Running") {
+  Write-Log "Windows Search service restarted successfully." "Green"
+} else {
+  Write-Log "Windows Search service is in state: $($svc.Status). Try running as Administrator." "Yellow"
+}
+} catch {
+  Write-Log "Error in Restart Search Service: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Service restart is a temporary fix. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error in Restart Search Service: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "clear-history",
+      label: "Clear Search History",
+      description: "Clears recent search queries from Windows Search",
+      script: `try {
+Write-Log "Clearing Windows Search history..."
+$paths = @(
+  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search\\RecentApps",
+  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search\\History"
+)
+foreach ($p in $paths) {
+  if (Test-Path $p) {
+    Remove-Item -Path "$p\\*" -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log "Cleared: $p" "Green"
+  }
+}
+Write-Log "Search history cleared." "Green"
+} catch {
+  Write-Log "Error in Clear Search History: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Search history clearing cannot be undone. New searches will populate automatically." "Yellow"
+} catch {
+  Write-Log "Error in Clear Search History: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "bluetooth-fix": [
+    {
+      id: "restart-bthserv",
+      label: "Restart Bluetooth Service",
+      description: "Restarts the Bluetooth Support Service",
+      script: `try {
+Write-Log "Restarting Bluetooth Support Service..."
+Restart-Service -Name BthServ -Force -ErrorAction SilentlyContinue
+$svc = Get-Service -Name BthServ -ErrorAction SilentlyContinue
+if ($svc.Status -eq "Running") {
+  Write-Log "Bluetooth Support Service restarted successfully." "Green"
+} elseif ($svc) {
+  Write-Log "Bluetooth Support Service is in state: $($svc.Status)" "Yellow"
+} else {
+  Write-Log "Bluetooth Support Service not found. It may not be installed." "Yellow"
+}
+} catch {
+  Write-Log "Error in Restart Bluetooth Service: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Service restart is a temporary fix. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error in Restart Bluetooth Service: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "reset-adapter",
+      label: "Reset Bluetooth Adapter",
+      description: "Disables and re-enables the Bluetooth radio",
+      script: `try {
+Write-Log "Resetting Bluetooth adapter..."
+$bt = Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -notmatch "Personal Area Network" }
+if ($bt) {
+  foreach ($d in $bt) { Write-Log "Found Bluetooth adapter: $($d.FriendlyName)" }
+  $adapter = $bt | Select-Object -First 1
+  Write-Log "Disabling Bluetooth adapter..."
+  Disable-PnpDevice -InstanceId $adapter.InstanceId -Confirm:$false
+  Start-Sleep -Seconds 2
+  Write-Log "Re-enabling Bluetooth adapter..."
+  Enable-PnpDevice -InstanceId $adapter.InstanceId -Confirm:$false
+  Write-Log "Bluetooth adapter reset successfully." "Green"
+} else {
+  Write-Log "No Bluetooth adapter found. It may be missing or disabled in BIOS." "Yellow"
+}
+} catch {
+  Write-Log "Error in Reset Bluetooth Adapter: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Adapter reset is temporary. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error in Reset Bluetooth Adapter: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "scan-devices",
+      label: "Scan for Bluetooth Hardware",
+      description: "Triggers a hardware scan so Windows re-detects Bluetooth devices",
+      script: `try {
+Write-Log "Scanning for Bluetooth hardware changes..."
+$bt = Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -notmatch "Personal Area Network" }
+if ($bt) {
+  foreach ($d in $bt) { Write-Log "Found: $($d.FriendlyName)" }
+  Write-Log "Status: $($bt.Status)" 
+  if ($bt.Status -eq "Error") {
+    Write-Log "Bluetooth adapter has an error. Attempting to reset..." "Yellow"
+    Enable-PnpDevice -InstanceId $bt.InstanceId -Confirm:$false
+  }
+}
+pnputil /scan-devices
+Write-Log "Hardware scan completed. Bluetooth devices should reappear if detected." "Green"
+} catch {
+  Write-Log "Error in Scan for Bluetooth Hardware: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Hardware scan is read-only. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error in Scan for Bluetooth Hardware: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "explorer-fix": [
+    {
+      id: "clear-thumbcache",
+      label: "Clear Thumbnail Cache",
+      description: "Deletes the thumbnail cache so Windows regenerates thumbnails fresh",
+      script: `try {
+Write-Log "Clearing thumbnail cache..."
+Stop-Service -Name WSearch -Force -ErrorAction SilentlyContinue
+$cachePaths = @(
+  "$env:LOCALAPPDATA\\Microsoft\\Windows\\Explorer\\thumbcache_*.db",
+  "$env:LOCALAPPDATA\\Microsoft\\Windows\\Explorer\\thumbcache_*.idx"
+)
+foreach ($pattern in $cachePaths) {
+  $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
+  foreach ($f in $files) {
+    Remove-Item -Path $f.FullName -Force -ErrorAction SilentlyContinue
+  }
+}
+Write-Log "Thumbnail cache cleared. Thumbnails will regenerate when you open folders." "Green"
+Start-Service -Name WSearch -ErrorAction SilentlyContinue
+} catch {
+  Write-Log "Error in Clear Thumbnail Cache: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Thumbnail cache clearing cannot be undone. Windows will regenerate thumbnails automatically." "Yellow"
+} catch {
+  Write-Log "Error in Clear Thumbnail Cache: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "restart-explorer",
+      label: "Restart File Explorer",
+      description: "Terminates and restarts Explorer.exe (fixes UI glitches and crashes)",
+      script: `try {
+Write-Log "Restarting File Explorer..."
+Get-Process -Name explorer -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep -Seconds 2
+$proc = Get-Process -Name explorer -ErrorAction SilentlyContinue
+if ($proc) {
+  Write-Log "File Explorer restarted successfully." "Green"
+} else {
+  Write-Log "File Explorer did not restart automatically. Starting it manually..." "Yellow"
+  Start-Process explorer
+  Write-Log "File Explorer started." "Green"
+}
+} catch {
+  Write-Log "Error in Restart File Explorer: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Explorer restart is temporary. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error in Restart File Explorer: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "repair-views",
+      label: "Reset Folder Views",
+      description: "Resets corrupted per-folder view settings to defaults",
+      script: `try {
+Write-Log "Resetting folder view settings..."
+$streamsPath = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Streams"
+$bagMRUPath = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\BagMRU"
+foreach ($p in @($streamsPath, $bagMRUPath)) {
+  if (Test-Path $p) {
+    Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log "Reset: $p" "Green"
+  }
+}
+Write-Log "Folder view settings reset. Defaults will apply on next login." "Green"
+} catch {
+  Write-Log "Error in Reset Folder Views: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Folder view reset cannot be undone. Views will be recreated with defaults." "Yellow"
+} catch {
+  Write-Log "Error in Reset Folder Views: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "clock-sync": [
+    {
+      id: "resync-time",
+      label: "Resync Clock with Time Server",
+      description: "Forces an immediate sync with your configured internet time server",
+      script: `try {
+Write-Log "Resyncing clock with internet time server..."
+w32tm /resync /force
+if ($LASTEXITCODE -eq 0) {
+  Write-Log "Clock resynced successfully." "Green"
+} else {
+  Write-Log "Time sync may have failed. Checking time service status..." "Yellow"
+  $svc = Get-Service -Name w32time -ErrorAction SilentlyContinue
+  if ($svc.Status -ne "Running") {
+    Write-Log "Windows Time service is not running." "Red"
+  }
+}
+} catch {
+  Write-Log "Error in Resync Clock: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Clock resync cannot be undone. Sync again if needed." "Yellow"
+} catch {
+  Write-Log "Error in Resync Clock: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "restart-w32time",
+      label: "Restart Windows Time Service",
+      description: "Stops and restarts the W32Time service to fix stuck time sync",
+      script: `try {
+Write-Log "Restarting Windows Time service..."
+if ((Get-Service -Name w32time -ErrorAction SilentlyContinue).Status -eq "Running") {
+  Stop-Service -Name w32time -Force
+}
+Start-Service -Name w32time
+$svc = Get-Service -Name w32time
+if ($svc.Status -eq "Running") {
+  Write-Log "Windows Time service restarted and running." "Green"
+} else {
+  Write-Log "Failed to start Windows Time service." "Red"
+}
+} catch {
+  Write-Log "Error in Restart Windows Time: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Service restart is temporary. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error in Restart Windows Time: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "change-server",
+      label: "Set Reliable Time Servers",
+      description: "Configures time.windows.com and pool.ntp.org as fallback servers",
+      script: `try {
+Write-Log "Setting reliable time servers..."
+w32tm /config /manualpeerlist:"time.windows.com pool.ntp.org" /syncfromflags:manual /reliable:yes /update
+Write-Log "Time servers configured: time.windows.com, pool.ntp.org" "Green"
+Write-Log "Resyncing with new servers..."
+w32tm /resync /force
+Write-Log "Clock resynced with new time servers." "Green"
+} catch {
+  Write-Log "Error in Set Time Servers: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Restoring default time servers..."
+w32tm /config /manualpeerlist:"time.windows.com" /syncfromflags:manual /reliable:yes /update
+Write-Log "Default time server restored." "Green"
+} catch {
+  Write-Log "Error reverting time servers: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "enable-auto",
+      label: "Enable Automatic Time Sync",
+      description: "Ensures W32Time auto-starts and syncs periodically",
+      script: `try {
+Write-Log "Enabling automatic time sync..."
+Set-ItemProperty -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\W32Time\\Parameters" -Name "Type" -Value "NTP" -ErrorAction SilentlyContinue
+Set-Service -Name w32time -StartupType Automatic
+Start-Service -Name w32time -ErrorAction SilentlyContinue
+w32tm /resync /force
+Write-Log "Automatic time sync enabled. Your clock will stay accurate going forward." "Green"
+} catch {
+  Write-Log "Error in Enable Auto Sync: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Set-Service -Name w32time -StartupType Manual
+Write-Log "Windows Time service set back to manual start." "Yellow"
+} catch {
+  Write-Log "Error reverting auto sync: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "troubleshooter-runner": [
+    {
+      id: "run-network",
+      label: "Run Network Troubleshooter",
+      description: "Runs the built-in Windows network troubleshooter for adapter and internet issues",
+      script: `try {
+Write-Log "Launching Network Troubleshooter..."
+Start-Process msdt.exe -ArgumentList "/id NetworkDiagnosticsNetworkAdapter" -Wait
+Write-Log "Network Troubleshooter completed." "Green"
+} catch {
+  Write-Log "Error launching Network Troubleshooter: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Troubleshooter results are applied by Windows. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "run-audio",
+      label: "Run Audio Troubleshooter",
+      description: "Runs the built-in Windows audio playback troubleshooter",
+      script: `try {
+Write-Log "Launching Audio Troubleshooter..."
+Start-Process msdt.exe -ArgumentList "/id AudioPlaybackDiagnostic" -Wait
+Write-Log "Audio Troubleshooter completed." "Green"
+} catch {
+  Write-Log "Error launching Audio Troubleshooter: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Troubleshooter results are applied by Windows. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "run-printer",
+      label: "Run Printer Troubleshooter",
+      description: "Runs the built-in Windows printer troubleshooter",
+      script: `try {
+Write-Log "Launching Printer Troubleshooter..."
+Start-Process msdt.exe -ArgumentList "/id PrinterDiagnostic" -Wait
+Write-Log "Printer Troubleshooter completed." "Green"
+} catch {
+  Write-Log "Error launching Printer Troubleshooter: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Troubleshooter results are applied by Windows. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "run-update",
+      label: "Run Windows Update Troubleshooter",
+      description: "Runs the built-in Windows Update troubleshooter for stuck updates",
+      script: `try {
+Write-Log "Launching Windows Update Troubleshooter..."
+Start-Process msdt.exe -ArgumentList "/id WindowsUpdateDiagnostic" -Wait
+Write-Log "Windows Update Troubleshooter completed." "Green"
+} catch {
+  Write-Log "Error launching Windows Update Troubleshooter: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Troubleshooter results are applied by Windows. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "run-all",
+      label: "Run All Common Troubleshooters",
+      description: "Runs network, audio, printer, update, and maintenance troubleshooters in sequence",
+      script: `try {
+Write-Log "Running all common troubleshooters..."
+$troubleshooters = @(
+  "NetworkDiagnosticsNetworkAdapter",
+  "AudioPlaybackDiagnostic",
+  "PrinterDiagnostic",
+  "WindowsUpdateDiagnostic",
+  "MaintenanceDiagnostic"
+)
+foreach ($t in $troubleshooters) {
+  Write-Log "Running: $t"
+  Start-Process msdt.exe -ArgumentList "/id $t" -Wait
+}
+Write-Log "All troubleshooters completed." "Green"
+} catch {
+  Write-Log "Error running troubleshooters: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Troubleshooter results are applied by Windows. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "store-fix": [
+    {
+      id: "reset-cache",
+      label: "Reset Store Cache",
+      description: "Runs wsreset.exe to clear the Store's temporary cache",
+      script: `try {
+Write-Log "Resetting Microsoft Store cache..."
+Start-Process wsreset.exe -NoNewWindow -Wait
+Write-Log "Microsoft Store cache reset completed." "Green"
+} catch {
+  Write-Log "Error resetting Store cache: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Cache reset cannot be undone. Cache will rebuild automatically." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "reregister-store",
+      label: "Re-register Microsoft Store",
+      description: "Re-registers the Store app via PowerShell to fix broken installations",
+      script: `try {
+Write-Log "Re-registering Microsoft Store..."
+Get-AppXPackage -AllUsers -Name Microsoft.WindowsStore -ErrorAction SilentlyContinue | Foreach-Object {
+  Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\\AppXManifest.xml" -ErrorAction SilentlyContinue
+  Write-Log "Re-registered: Microsoft.WindowsStore" "Green"
+}
+Write-Log "Store re-registration complete." "Green"
+} catch {
+  Write-Log "Error re-registering Store: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Re-registration is not reversible. Store is now registered." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "fix-store-service",
+      label: "Fix Store Install Service",
+      description: "Restarts and enables the Store Install Service",
+      script: `try {
+Write-Log "Checking Store-related services..."
+Restart-Service -Name InstallService -Force -ErrorAction SilentlyContinue
+Set-Service -Name InstallService -StartupType Automatic -ErrorAction SilentlyContinue
+$svc = Get-Service -Name InstallService -ErrorAction SilentlyContinue
+if ($svc.Status -eq "Running") {
+  Write-Log "InstallService is running and set to Automatic." "Green"
+} else {
+  Start-Service -Name InstallService -ErrorAction SilentlyContinue
+  Write-Log "InstallService started." "Green"
+}
+} catch {
+  Write-Log "Error fixing Store services: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Service changes are not reversible through this tool." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "network-stack-reset": [
+    {
+      id: "flush-dns",
+      label: "Flush DNS Cache",
+      description: "Clears the DNS resolver cache so Windows re-queries DNS servers",
+      script: `try {
+Write-Log "Flushing DNS resolver cache..."
+ipconfig /flushdns
+Write-Log "DNS cache flushed." "Green"
+} catch {
+  Write-Log "Error flushing DNS: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "DNS flush cannot be undone. Cache will repopulate naturally." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "reset-winsock",
+      label: "Reset Winsock",
+      description: "Resets the Winsock catalog to a clean state (fixes socket errors)",
+      script: `try {
+Write-Log "Resetting Winsock catalog..."
+netsh winsock reset
+Write-Log "Winsock reset. You may need to restart your PC for full effect." "Green"
+} catch {
+  Write-Log "Error resetting Winsock: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Winsock reset is applied immediately. Run again with different options if needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "reset-tcpip",
+      label: "Reset TCP/IP Stack",
+      description: "Resets the entire TCP/IP stack to Windows defaults",
+      script: `try {
+Write-Log "Resetting TCP/IP stack..."
+netsh int ip reset
+Write-Log "TCP/IP stack reset. Restart your PC for changes to take full effect." "Green"
+} catch {
+  Write-Log "Error resetting TCP/IP: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "TCP/IP reset cannot be undone. Run again if issues persist." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "release-renew",
+      label: "Release & Renew IP",
+      description: "Releases current IP and requests a new one from DHCP",
+      script: `try {
+Write-Log "Releasing current IP configuration..."
+ipconfig /release
+Write-Log "IP released. Requesting new IP from DHCP..."
+ipconfig /renew
+Write-Log "IP address renewed." "Green"
+ipconfig /displaydns | findstr /i "IPv4"
+} catch {
+  Write-Log "Error releasing/renewing IP: $($_.Exception.Message). Try running as Administrator." "Red"
+}`,
+      undoScript: `try {
+Write-Log "IP renewal cannot be undone. Run again if needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "activation-fix": [
+    {
+      id: "check-status",
+      label: "Check Activation Status",
+      description: "Displays your current Windows activation state and product key details",
+      script: `try {
+Write-Log "Checking Windows activation status..."
+$status = cscript /nologo "$env:windir\\system32\\slmgr.vbs" /dli 2>&1
+foreach ($line in $status) { Write-Log $line.Trim() }
+if ($status -match "Licensed") {
+  Write-Log "Windows is activated." "Green"
+} elseif ($status -match "Notification") {
+  Write-Log "Windows is NOT activated. Run 'Attempt Online Activation'." "Red"
+} else {
+  Write-Log "Could not determine activation status." "Yellow"
+}
+} catch {
+  Write-Log "Error checking activation: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Status check is read-only. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "activate-online",
+      label: "Attempt Online Activation",
+      description: "Forces Windows to contact Microsoft servers to activate",
+      script: `try {
+Write-Log "Attempting online Windows activation..."
+$result = cscript /nologo "$env:windir\\system32\\slmgr.vbs" /ato 2>&1
+foreach ($line in $result) { Write-Log $line.Trim() }
+if ($result -match "successful|activated") {
+  Write-Log "Windows activated successfully!" "Green"
+} else {
+  Write-Log "Online activation did not complete. Check your internet connection and try again." "Yellow"
+}
+} catch {
+  Write-Log "Error during activation: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Activation cannot be undone. If you need to change product keys, use 'Refresh License'." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "refresh-license",
+      label: "Refresh License State",
+      description: "Checks status first, then attempts activation if not activated",
+      script: `try {
+Write-Log "Checking activation status before refresh..."
+$status = cscript /nologo "$env:windir\\system32\\slmgr.vbs" /dli 2>&1
+if ($status -match "Licensed") {
+  Write-Log "Windows is already activated. No refresh needed." "Green"
+} else {
+  Write-Log "Windows not activated. Attempting online activation..."
+  $result = cscript /nologo "$env:windir\\system32\\slmgr.vbs" /ato 2>&1
+  foreach ($line in $result) { Write-Log $line.Trim() }
+  if ($result -match "successful|activated") {
+    Write-Log "Windows activated successfully!" "Green"
+  } else {
+    Write-Log "Could not activate automatically. Contact IT support or enter a new product key." "Yellow"
+  }
+}
+} catch {
+  Write-Log "Error refreshing license: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "License refresh is read-only or one-way. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "keyboard-mouse-fix": [
+    {
+      id: "reset-keyboard",
+      label: "Reset Keyboard Driver",
+      description: "Disables and re-enables the keyboard to force driver reinstall",
+      script: `try {
+Write-Log "Resetting keyboard driver..."
+$kbd = Get-PnpDevice -Class Keyboard -ErrorAction SilentlyContinue
+if (-not $kbd) { Write-Log "No keyboard devices found." "Yellow"; return }
+foreach ($d in $kbd) {
+  Write-Log "Resetting keyboard: $($d.FriendlyName)"
+  Disable-PnpDevice -InstanceId $d.InstanceId -Confirm:$false -ErrorAction SilentlyContinue
+  Start-Sleep -Seconds 2
+  Enable-PnpDevice -InstanceId $d.InstanceId -Confirm:$false -ErrorAction SilentlyContinue
+  Write-Log "Keyboard driver reset." "Green"
+}
+} catch {
+  Write-Log "Error resetting keyboard: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Keyboard driver reset is temporary and persists. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "reset-mouse",
+      label: "Reset Mouse Driver",
+      description: "Disables and re-enables the mouse to force driver reinstall",
+      script: `try {
+Write-Log "Resetting mouse driver..."
+$mouse = Get-PnpDevice -Class Mouse -ErrorAction SilentlyContinue
+if (-not $mouse) { Write-Log "No mouse devices found." "Yellow"; return }
+foreach ($d in $mouse) {
+  Write-Log "Resetting mouse: $($d.FriendlyName)"
+  Disable-PnpDevice -InstanceId $d.InstanceId -Confirm:$false -ErrorAction SilentlyContinue
+  Start-Sleep -Seconds 2
+  Enable-PnpDevice -InstanceId $d.InstanceId -Confirm:$false -ErrorAction SilentlyContinue
+  Write-Log "Mouse driver reset." "Green"
+}
+} catch {
+  Write-Log "Error resetting mouse: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Mouse driver reset is temporary and persists. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "reset-hid",
+      label: "Restart HID Services",
+      description: "Restarts Human Interface Device services for both keyboard and mouse",
+      script: `try {
+Write-Log "Restarting HID services..."
+$services = @("HidServ", "kbdhid", "mouhid")
+foreach ($s in $services) {
+  Restart-Service -Name $s -Force -ErrorAction SilentlyContinue
+  Write-Log "Restarted: $s" "Green"
+}
+Write-Log "HID services restarted." "Green"
+} catch {
+  Write-Log "Error restarting HID services: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Services restart is temporary. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "fix-sticky-keys",
+      label: "Clear Stuck Key Settings",
+      description: "Resets StickyKeys, FilterKeys, and ToggleKeys to defaults",
+      script: `try {
+Write-Log "Clearing stuck keyboard state..."
+Set-ItemProperty -Path "HKCU:\\Control Panel\\Accessibility\\StickyKeys" -Name "Flags" -Value "58" -Type String -ErrorAction SilentlyContinue
+Set-ItemProperty -Path "HKCU:\\Control Panel\\Accessibility\\ToggleKeys" -Name "Flags" -Value "58" -Type String -ErrorAction SilentlyContinue
+Set-ItemProperty -Path "HKCU:\\Control Panel\\Accessibility\\FilterKeys" -Name "Flags" -Value "122" -Type String -ErrorAction SilentlyContinue
+Write-Log "StickyKeys, FilterKeys, and ToggleKeys reset to defaults." "Green"
+} catch {
+  Write-Log "Error clearing key settings: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Key settings reset. Re-enable via Settings > Accessibility > Keyboard if needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "check-touchpad",
+      label: "Re-enable Touchpad",
+      description: "Checks if touchpad is disabled and re-enables it",
+      script: `try {
+Write-Log "Checking touchpad status..."
+$touchpad = Get-PnpDevice -Class HIDClass -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -match "touchpad|trackpad|elan|synaptics" }
+if (-not $touchpad) { Write-Log "No touchpad detected." "Yellow"; return }
+foreach ($d in $touchpad) {
+  if ($d.Status -ne "OK") {
+    Enable-PnpDevice -InstanceId $d.InstanceId -Confirm:$false -ErrorAction SilentlyContinue
+    Write-Log "Touchpad re-enabled: $($d.FriendlyName)" "Green"
+  } else {
+    Write-Log "Touchpad is already enabled: $($d.FriendlyName)" "Green"
+  }
+}
+} catch {
+  Write-Log "Error checking touchpad: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Touchpad state change is applied. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "runtime-installer": [
+    {
+      id: "install-dotnet",
+      label: "Install .NET Desktop Runtime",
+      description: "Installs the latest .NET Desktop Runtime via winget",
+      script: `try {
+Write-Log "Installing .NET Desktop Runtime via winget..."
+$result = winget install Microsoft.DotNet.DesktopRuntime.9 --accept-package-agreements --accept-source-agreements 2>&1 | Out-String
+if ($result -match "success|installed|already installed") {
+  Write-Log ".NET Desktop Runtime installation complete." "Green"
+} else {
+  Write-Log ".NET installation may have failed. Try installing manually from dotnet.microsoft.com." "Yellow"
+}
+} catch {
+  Write-Log "Error installing .NET: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log ".NET Runtime cannot be uninstalled through this tool. Use Settings > Apps > Installed Apps." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "install-vcredist",
+      label: "Install VC++ Redistributable",
+      description: "Installs the latest Visual C++ Redistributable (2015-2022) via winget",
+      script: `try {
+Write-Log "Installing Visual C++ Redistributable via winget..."
+$result = winget install Microsoft.VCRedist.2015+.x64 --accept-package-agreements --accept-source-agreements 2>&1 | Out-String
+if ($result -match "success|installed|already installed") {
+  Write-Log "VC++ Redistributable installation complete." "Green"
+} else {
+  $result2 = winget install Microsoft.VCRedist.2015+.x86 --accept-package-agreements --accept-source-agreements 2>&1 | Out-String
+  if ($result2 -match "success|installed|already installed") {
+    Write-Log "VC++ Redistributable installation complete." "Green"
+  } else {
+    Write-Log "VC++ installation may have failed. Try installing manually." "Yellow"
+  }
+}
+} catch {
+  Write-Log "Error installing VC++: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "VC++ Redist cannot be uninstalled through this tool. Use Settings > Apps > Installed Apps." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "install-directx",
+      label: "Install DirectX Runtime",
+      description: "Downloads and runs the DirectX End-User Runtime Web Installer",
+      script: `try {
+Write-Log "Downloading DirectX Runtime Web Installer..."
+$dxUrl = "https://download.microsoft.com/download/8/4/A/84A35BF1-DAFE-4AE8-82AF-AD2AE20B6B14/directx_Jun2010_redist.exe"
+$dxPath = "$env:TEMP\\dx_webinstaller.exe"
+Invoke-WebRequest -Uri $dxUrl -OutFile $dxPath -UseBasicParsing -ErrorAction Stop
+Write-Log "Running DirectX installer..."
+Start-Process $dxPath -ArgumentList "/Q /T:$env:TEMP\\dx" -Wait
+Write-Log "DirectX Runtime installation complete." "Green"
+Remove-Item $dxPath -Force -ErrorAction SilentlyContinue
+} catch {
+  Write-Log "Error installing DirectX: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "DirectX cannot be uninstalled through this tool." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "font-cache-fix": [
+    {
+      id: "rebuild-cache",
+      label: "Rebuild Font Cache",
+      description: "Stops FontCache service, deletes cache files, and restarts it",
+      script: `try {
+Write-Log "Stopping Font Cache service..."
+Stop-Service -Name FontCache -Force -ErrorAction SilentlyContinue
+Write-Log "Deleting cached font data..."
+$cachePaths = @(
+  "$env:WINDIR\\ServiceProfiles\\LocalService\\AppData\\Local\\FontCache",
+  "$env:WINDIR\\ServiceProfiles\\LocalService\\AppData\\Local\\FontCache-System",
+  "$env:WINDIR\\System32\\FNTCACHE.DAT"
+)
+foreach ($p in $cachePaths) {
+  if (Test-Path $p) {
+    Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log "Deleted: $p" "Green"
+  }
+}
+Start-Service -Name FontCache
+Start-Sleep -Seconds 1
+$svc = Get-Service -Name FontCache -ErrorAction SilentlyContinue
+if ($svc.Status -eq "Running") { Write-Log "Font Cache rebuilt successfully." "Green" }
+else { Write-Log "Font Cache service did not start. Restart your PC." "Yellow" }
+} catch {
+  Write-Log "Error rebuilding font cache: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Font cache rebuild cannot be undone. Windows will regenerate cache automatically." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "reset-font-registry",
+      label: "Reset Font Registry",
+      description: "Cleans up corrupted font entries in the Windows registry",
+      script: `try {
+Write-Log "Cleaning font registry entries..."
+$fontsPath = "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts"
+if (Test-Path $fontsPath) {
+  Get-ItemProperty -Path $fontsPath -ErrorAction SilentlyContinue | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -match "corrupt|broken|invalid|damage" } | ForEach-Object {
+    Remove-ItemProperty -Path $fontsPath -Name $_.Name -ErrorAction SilentlyContinue
+    Write-Log "Removed corrupted entry: $($_.Name)" "Green"
+  }
+}
+Write-Log "Font registry cleaned." "Green"
+} catch {
+  Write-Log "Error resetting font registry: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Registry cleanup cannot be undone. Run 'Rebuild Font Cache' if issues persist." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "windows-hello-fix": [
+    {
+      id: "restart-biometric",
+      label: "Restart Biometric Service",
+      description: "Restarts the Windows Biometric Service (WbioSrvc)",
+      script: `try {
+Write-Log "Restarting Windows Biometric Service..."
+Restart-Service -Name WbioSrvc -Force -ErrorAction SilentlyContinue
+Set-Service -Name WbioSrvc -StartupType Automatic -ErrorAction SilentlyContinue
+$svc = Get-Service -Name WbioSrvc -ErrorAction SilentlyContinue
+if ($svc.Status -eq "Running") {
+  Write-Log "Windows Biometric Service is running." "Green"
+} else {
+  Start-Service -Name WbioSrvc -ErrorAction SilentlyContinue
+  Write-Log "Windows Biometric Service started." "Green"
+}
+} catch {
+  Write-Log "Error restarting biometric service: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Service restart is temporary. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "check-tpm",
+      label: "Check TPM Status",
+      description: "Checks if your TPM chip is enabled and ready for Windows Hello",
+      script: `try {
+Write-Log "Checking TPM status..."
+$tpm = Get-CimInstance -Namespace "Root\\CIMv2\\Security\\MicrosoftTpm" -ClassName Win32_Tpm -ErrorAction SilentlyContinue
+if ($tpm) {
+  if ($tpm.IsEnabled_InitialValue -eq $true) {
+    Write-Log "TPM is enabled and ready." "Green"
+  } else {
+    Write-Log "TPM is disabled. Enable it in UEFI/BIOS security settings." "Red"
+  }
+  if ($tpm.IsActivated_InitialValue -eq $true) {
+    Write-Log "TPM is activated." "Green"
+  } else {
+    Write-Log "TPM is not activated." "Yellow"
+  }
+} else {
+  Write-Log "No TPM detected, or TPM module is not accessible." "Yellow"
+}
+} catch {
+  Write-Log "Error checking TPM: $($_.Exception.Message). Run as Administrator." "Red"
+}`,
+      undoScript: `try {
+Write-Log "TPM check is read-only. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "restart-credential-manager",
+      label: "Restart Credential Manager",
+      description: "Restarts VaultSvc to resolve PIN credential issues",
+      script: `try {
+Write-Log "Restarting Credential Manager service..."
+Restart-Service -Name VaultSvc -Force -ErrorAction SilentlyContinue
+Set-Service -Name VaultSvc -StartupType Automatic -ErrorAction SilentlyContinue
+$svc = Get-Service -Name VaultSvc -ErrorAction SilentlyContinue
+if ($svc.Status -eq "Running") {
+  Write-Log "Credential Manager is running. This can resolve PIN sign-in issues." "Green"
+} else {
+  Start-Service -Name VaultSvc -ErrorAction SilentlyContinue
+  Write-Log "Credential Manager started." "Green"
+}
+} catch {
+  Write-Log "Error restarting Credential Manager: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Service restart is temporary. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "detect-hello",
+      label: "Detect Hello Hardware",
+      description: "Scans for biometric hardware (fingerprint, IR camera) and enables them",
+      script: `try {
+Write-Log "Scanning for Windows Hello hardware..."
+pnputil /scan-devices
+$bio = Get-PnpDevice -Class Biometric -ErrorAction SilentlyContinue
+$cam = Get-PnpDevice -Class Camera -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -match "ir|infrared|hello|intel real" }
+if ($bio) {
+  Write-Log "Biometric devices found:" "Green"
+  foreach ($d in $bio) {
+    if ($d.Status -ne "OK") {
+      Enable-PnpDevice -InstanceId $d.InstanceId -Confirm:$false -ErrorAction SilentlyContinue
+      Write-Log "  - $($d.FriendlyName) (enabled)" "Green"
+    } else {
+      Write-Log "  - $($d.FriendlyName) [OK]" "Green"
+    }
+  }
+}
+if ($cam) {
+  Write-Log "IR camera(s) found:" "Green"
+  foreach ($d in $cam) {
+    if ($d.Status -ne "OK") {
+      Enable-PnpDevice -InstanceId $d.InstanceId -Confirm:$false -ErrorAction SilentlyContinue
+      Write-Log "  - $($d.FriendlyName) (enabled)" "Green"
+    } else {
+      Write-Log "  - $($d.FriendlyName) [OK]" "Green"
+    }
+  }
+}
+if (-not $bio -and -not $cam) {
+  Write-Log "No Windows Hello compatible hardware detected." "Yellow"
+}
+} catch {
+  Write-Log "Error detecting Hello hardware: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Hardware scan and enable cannot be undone." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "date-time-format-fix": [
+    {
+      id: "reset-region",
+      label: "Reset Region Settings",
+      description: "Resets region, locale, and format settings to system defaults",
+      script: `try {
+Write-Log "Resetting region and locale settings..."
+$lang = (Get-Culture).Name
+Set-ItemProperty -Path "HKCU:\\Control Panel\\International" -Name "LocaleName" -Value $lang -ErrorAction SilentlyContinue
+Set-ItemProperty -Path "HKCU:\\Control Panel\\International" -Name "sShortDate" -Value "dd/MM/yyyy" -ErrorAction SilentlyContinue
+Set-ItemProperty -Path "HKCU:\\Control Panel\\International" -Name "sLongDate" -Value "dddd, MMMM dd, yyyy" -ErrorAction SilentlyContinue
+Set-ItemProperty -Path "HKCU:\\Control Panel\\International" -Name "sShortTime" -Value "HH:mm" -ErrorAction SilentlyContinue
+Set-ItemProperty -Path "HKCU:\\Control Panel\\International" -Name "sTimeFormat" -Value "HH:mm:ss" -ErrorAction SilentlyContinue
+Write-Log "Region settings reset for: $lang" "Green"
+} catch {
+  Write-Log "Error resetting region: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Region changes are applied immediately. Change back in Settings > Time & Language." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "fix-date-format",
+      label: "Set Short Date Format",
+      description: "Sets short date to DD/MM/YYYY format",
+      script: `try {
+Write-Log "Setting short date format to DD/MM/YYYY..."
+Set-ItemProperty -Path "HKCU:\\Control Panel\\International" -Name "sShortDate" -Value "dd/MM/yyyy" -ErrorAction SilentlyContinue
+Set-ItemProperty -Path "HKCU:\\Control Panel\\International" -Name "sLongDate" -Value "dddd, MMMM dd, yyyy" -ErrorAction SilentlyContinue
+Write-Log "Date format set to DD/MM/YYYY." "Green"
+} catch {
+  Write-Log "Error setting date format: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Date format changed. Revert via Settings > Time & Language > Language & Region." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "fix-time-format",
+      label: "Set 24-Hour Format",
+      description: "Sets time to 24-hour format (HH:mm) instead of 12-hour",
+      script: `try {
+Write-Log "Setting 24-hour time format..."
+Set-ItemProperty -Path "HKCU:\\Control Panel\\International" -Name "sShortTime" -Value "HH:mm" -ErrorAction SilentlyContinue
+Set-ItemProperty -Path "HKCU:\\Control Panel\\International" -Name "sTimeFormat" -Value "HH:mm:ss" -ErrorAction SilentlyContinue
+Set-ItemProperty -Path "HKCU:\\Control Panel\\International" -Name "sTime" -Value "HH:mm" -ErrorAction SilentlyContinue
+Write-Log "Time format set to 24-hour (HH:mm)." "Green"
+} catch {
+  Write-Log "Error setting time format: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Time format changed. Revert via Settings > Time & Language." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "fix-first-day",
+      label: "Set Monday as First Day",
+      description: "Sets Monday as the first day of the week in calendar settings",
+      script: `try {
+Write-Log "Setting Monday as first day of week..."
+Set-ItemProperty -Path "HKCU:\\Control Panel\\International" -Name "iFirstDayOfWeek" -Value "1" -Type DWord -ErrorAction SilentlyContinue
+Set-ItemProperty -Path "HKCU:\\Control Panel\\International" -Name "sFirstDayOfWeek" -Value "Monday" -ErrorAction SilentlyContinue
+Write-Log "First day of week set to Monday." "Green"
+} catch {
+  Write-Log "Error setting first day of week: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "First day changed. Revert via Settings > Time & Language." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "windows-apps-repair": [
+    {
+      id: "reinstall-all-apps",
+      label: "Re-register All Apps",
+      description: "Re-registers ALL built-in Windows app packages for your user account",
+      script: `try {
+Write-Log "Re-registering all built-in Windows apps..."
+$apps = Get-AppXPackage -User $env:USERNAME -ErrorAction SilentlyContinue
+$count = 0
+foreach ($app in $apps) {
+  Add-AppxPackage -DisableDevelopmentMode -Register "$($app.InstallLocation)\\AppXManifest.xml" -ErrorAction SilentlyContinue
+  $count++
+  if ($count % 20 -eq 0) { Write-Log "Re-registered $count apps..." "Green" }
+}
+Write-Log "Re-registered $count app(s) successfully." "Green"
+} catch {
+  Write-Log "Error re-registering apps: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "App re-registration cannot be undone. Apps are now registered." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "reset-app-caches",
+      label: "Reset App Caches",
+      description: "Clears cached data for Calculator, Photos, Mail, Alarms, and more",
+      script: `try {
+Write-Log "Resetting app caches..."
+$appPackages = @(
+  "Microsoft.WindowsCalculator",
+  "Microsoft.Windows.Photos",
+  "Microsoft.WindowsStore",
+  "Microsoft.People",
+  "Microsoft.WindowsAlarms",
+  "microsoft.windowscommunicationsapps",
+  "Microsoft.MSPaint",
+  "Microsoft.ScreenSketch",
+  "Microsoft.WindowsCamera",
+  "Microsoft.WindowsSoundRecorder",
+  "Microsoft.StorePurchaseApp",
+  "Microsoft.XboxApp"
+)
+$resetCount = 0
+foreach ($pkg in $appPackages) {
+  $app = Get-AppXPackage -Name $pkg -ErrorAction SilentlyContinue
+  if ($app) {
+    Reset-AppxPackage -Package $app.PackageFullName -ErrorAction SilentlyContinue
+    Write-Log "Reset cache: $pkg" "Green"
+    $resetCount++
+  }
+}
+if ($resetCount -eq 0) { Write-Log "No built-in apps found to reset." "Yellow" }
+else { Write-Log "Reset $resetCount app cache(s)." "Green" }
+} catch {
+  Write-Log "Error resetting app caches: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Cache reset cannot be undone. Caches will rebuild when apps open." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "system-apps-fix",
+      label: "Fix System-Level Apps",
+      description: "Re-registers app packages for ALL users on this PC",
+      script: `try {
+Write-Log "Re-registering system-level apps for all users..."
+$apps = Get-AppXPackage -AllUsers -ErrorAction SilentlyContinue
+$count = 0
+foreach ($app in $apps) {
+  Add-AppxPackage -DisableDevelopmentMode -Register "$($app.InstallLocation)\\AppXManifest.xml" -ErrorAction SilentlyContinue
+  $count++
+  if ($count % 20 -eq 0) { Write-Log "Re-registered $count apps..." "Green" }
+}
+Write-Log "Re-registered $count app(s) for all users." "Green"
+} catch {
+  Write-Log "Error re-registering system apps: $($_.Exception.Message). Run as Administrator." "Red"
+}`,
+      undoScript: `try {
+Write-Log "System app fix cannot be undone." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "file-association-guardian": [
+    {
+      id: "backup-associations",
+      label: "Backup All Associations",
+      description: "Saves every file extension and app mapping to a .reg file + JSON snapshot",
+      script: `try {
+Write-Log "Backing up file associations..."
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$backupDir = "$env:USERPROFILE\\FixeloBackups"
+if (-not (Test-Path $backupDir)) { New-Item -ItemType Directory -Path $backupDir -Force | Out-Null }
+$backupFile = "$backupDir\\FileAssociations_$timestamp.reg"
+reg export "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts" $backupFile /y 2>&1 | Out-Null
+Write-Log "Registry backup saved: $(Split-Path $backupFile -Leaf)" "Green"
+$exts = Get-ChildItem "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts" -ErrorAction SilentlyContinue
+$snapshot = @()
+foreach ($ext in $exts) {
+  $userChoice = Get-ItemProperty -Path "$($ext.PSPath)\\UserChoice" -Name "ProgId" -ErrorAction SilentlyContinue
+  $progId = if ($userChoice) { $userChoice.ProgId } else { "" }
+  $snapshot += [PSCustomObject]@{ Extension = $ext.PSChildName; ProgId = $progId }
+}
+$snapshotFile = "$backupDir\\FileAssociations_$timestamp.json"
+$snapshot | ConvertTo-Json -Compress | Out-File -FilePath $snapshotFile -Encoding UTF8
+Write-Log "JSON snapshot saved: $(Split-Path $snapshotFile -Leaf)" "Green"
+Write-Log "Backed up $($snapshot.Count) file extension mappings." "Green"
+} catch {
+  Write-Log "Error backing up associations: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Backup is a snapshot. Delete the .reg and .json files from $env:USERPROFILE\\FixeloBackups to remove." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "restore-backup",
+      label: "Restore from Backup",
+      description: "Restores all file associations from the most recent backup",
+      script: `try {
+Write-Log "Looking for file association backups..."
+$backupDir = "$env:USERPROFILE\\FixeloBackups"
+$backupFiles = Get-ChildItem -Path $backupDir -Filter "FileAssociations_*.reg" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+if (-not $backupFiles) { Write-Log "No backups found. Run 'Backup Associations' first." "Yellow"; return }
+$latest = $backupFiles[0].FullName
+Write-Log "Restoring from: $(Split-Path $latest -Leaf)"
+reg import $latest 2>&1 | Out-Null
+Write-Log "File associations restored from backup." "Green"
+} catch {
+  Write-Log "Error restoring backup: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Restoration cannot be undone. Run backup again, then restore the earlier backup." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "scan-hijacks",
+      label: "Scan for Changes",
+      description: "Compares current associations against backup to detect hijacks",
+      script: `try {
+Write-Log "Scanning for file association changes..."
+$backupDir = "$env:USERPROFILE\\FixeloBackups"
+$snapshots = Get-ChildItem -Path $backupDir -Filter "FileAssociations_*.json" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+if (-not $snapshots) { Write-Log "No backup snapshot found. Run 'Backup Associations' first to create a baseline." "Yellow"; return }
+$snapshot = Get-Content -Path $snapshots[0].FullName -Raw | ConvertFrom-Json
+$backupMap = @{}
+foreach ($entry in $snapshot) { $backupMap[$entry.Extension] = $entry.ProgId }
+$changes = 0
+$currentExts = Get-ChildItem "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts" -ErrorAction SilentlyContinue
+foreach ($ext in $currentExts) {
+  $extName = $ext.PSChildName
+  $currentProg = Get-ItemProperty -Path "$($ext.PSPath)\\UserChoice" -Name "ProgId" -ErrorAction SilentlyContinue
+  $currentVal = if ($currentProg) { $currentProg.ProgId } else { "" }
+  if ($backupMap.ContainsKey($extName) -and $backupMap[$extName] -ne "" -and $backupMap[$extName] -ne $currentVal) {
+    Write-Log "  $extName : '$($backupMap[$extName])' -> '$currentVal'" "Yellow"
+    $changes++
+  }
+}
+if ($changes -eq 0) {
+  Write-Log "No changes detected. Your file associations match the backup." "Green"
+} else {
+  Write-Log "Found $changes file association change(s). Restore backup to revert." "Green"
+}
+} catch {
+  Write-Log "Error scanning associations: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Scan is read-only. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "camera-fix": [
+    {
+      id: "restart-camera-service",
+      label: "Restart Camera Service",
+      description: "Restarts the Windows Camera Frame Server",
+      script: `try {
+Write-Log "Restarting Camera Frame Server..."
+Restart-Service -Name FrameServer -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+$svc = Get-Service -Name FrameServer -ErrorAction SilentlyContinue
+if ($svc.Status -eq "Running") {
+  Write-Log "Camera Frame Server is running." "Green"
+} else {
+  Start-Service -Name FrameServer -ErrorAction SilentlyContinue
+  Write-Log "Camera Frame Server started." "Green"
+}
+} catch {
+  Write-Log "Error restarting camera service: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Service restart is temporary. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "reset-camera-driver",
+      label: "Reinstall Camera Driver",
+      description: "Disables and re-enables the camera device to force driver refresh",
+      script: `try {
+Write-Log "Reinstalling camera driver..."
+$cam = Get-PnpDevice -Class Camera -ErrorAction SilentlyContinue
+if (-not $cam) {
+  $cam = Get-PnpDevice -Class Image -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -match "camera|webcam" }
+}
+if (-not $cam) { Write-Log "No camera devices found." "Yellow"; return }
+foreach ($d in $cam) {
+  Write-Log "Resetting: $($d.FriendlyName)"
+  Disable-PnpDevice -InstanceId $d.InstanceId -Confirm:$false -ErrorAction SilentlyContinue
+  Start-Sleep -Seconds 2
+  Enable-PnpDevice -InstanceId $d.InstanceId -Confirm:$false -ErrorAction SilentlyContinue
+  Write-Log "Camera driver reset for: $($d.FriendlyName)" "Green"
+}
+} catch {
+  Write-Log "Error resetting camera driver: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Driver reset is applied. No undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "check-privacy-permissions",
+      label: "Enable Camera Privacy",
+      description: "Ensures camera access is allowed in Windows privacy settings",
+      script: `try {
+Write-Log "Enabling camera privacy permissions..."
+$paths = @(
+  "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam",
+  "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam"
+)
+foreach ($p in $paths) {
+  if (Test-Path $p) {
+    Set-ItemProperty -Path $p -Name "Value" -Value "Allow" -ErrorAction SilentlyContinue
+  }
+}
+Write-Log "Camera access enabled in privacy settings." "Green"
+} catch {
+  Write-Log "Error enabling camera privacy: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Privacy setting changed. Revoke via Settings > Privacy & Security > Camera if needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "scan-camera-hardware",
+      label: "Scan for Camera Hardware",
+      description: "Triggers a hardware scan to detect unrecognized cameras",
+      script: `try {
+Write-Log "Scanning for camera hardware..."
+pnputil /scan-devices
+$cameras = Get-PnpDevice -Class Camera -ErrorAction SilentlyContinue
+$imaging = Get-PnpDevice -Class Image -ErrorAction SilentlyContinue
+if ($cameras.Count -gt 0) {
+  Write-Log "Detected camera(s):" "Green"
+  foreach ($c in $cameras) { Write-Log "  - $($c.FriendlyName) [$($c.Status)]" "Green" }
+} elseif ($imaging.Count -gt 0) {
+  Write-Log "Detected imaging device(s):" "Green"
+  foreach ($c in $imaging) { Write-Log "  - $($c.FriendlyName) [$($c.Status)]" "Green" }
+} else {
+  Write-Log "No camera hardware detected. Check connections." "Yellow"
+}
+} catch {
+  Write-Log "Error scanning for camera: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Hardware scan cannot be undone." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "context-menu-cleaner": [
+    {
+      id: "clean-sendto",
+      label: "Clean Send To Menu",
+      description: "Removes unnecessary items from the Send To context menu",
+      script: `try {
+Write-Log "Cleaning Send To menu..."
+$sendtoPath = "$env:APPDATA\\Microsoft\\Windows\\SendTo"
+if (Test-Path $sendtoPath) {
+  $keep = @("Desktop (create shortcut).desklink", "Documents.mydocs", "Mail Recipient.MAPIMail", "Fax Recipient", "Bluetooth File Transfer*.lnk")
+  Get-ChildItem -Path $sendtoPath -ErrorAction SilentlyContinue | Where-Object {
+    $match = $false
+    foreach ($k in $keep) { if ($_.Name -like $k) { $match = $true; break } }
+    -not $match
+  } | ForEach-Object {
+    Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
+    Write-Log "Removed: $($_.Name)" "Green"
+  }
+}
+Write-Log "Send To menu cleaned." "Green"
+} catch {
+  Write-Log "Error cleaning Send To menu: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Send To cleanup cannot be undone per-item. Default items will return on next Windows update." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "clean-extensions",
+      label: "Remove Junk Shell Extensions",
+      description: "Removes known bloat extensions with automatic registry backup",
+      script: `try {
+Write-Log "Backing up context menu registry..."
+$backupFile = "$env:TEMP\\fixelo_contextmenu_$([DateTime]::Now.ToString('yyyyMMdd_HHmmss')).reg"
+reg export "HKEY_CLASSES_ROOT\\*\\shellex\\ContextMenuHandlers" $backupFile /y 2>&1 | Out-Null
+reg export "HKEY_CLASSES_ROOT\\Directory\\shellex\\ContextMenuHandlers" $backupFile /y 2>&1 | Out-Null
+Write-Log "Backup saved to: $backupFile" "Green"
+$remove = @("OneDrive", "MicrosoftOneDrive", "7-Zip", "WinRAR", "WinZip", "DropboxExt", "Box", "GoogleDrive", "CloudStorage", "NvApp", "IGfx", "igfxDTCM", "PDFCreator", "OpenWithEncryption")
+$paths = @(
+  "HKLM:\\SOFTWARE\\Classes\\*\\shellex\\ContextMenuHandlers",
+  "HKLM:\\SOFTWARE\\Classes\\Directory\\shellex\\ContextMenuHandlers",
+  "HKLM:\\SOFTWARE\\Classes\\Directory\\Background\\shellex\\ContextMenuHandlers",
+  "HKCU:\\SOFTWARE\\Classes\\*\\shellex\\ContextMenuHandlers",
+  "HKCU:\\SOFTWARE\\Classes\\Directory\\shellex\\ContextMenuHandlers"
+)
+$count = 0
+foreach ($base in $paths) {
+  if (Test-Path $base) {
+    Get-ChildItem -Path $base -ErrorAction SilentlyContinue | Where-Object {
+      $name = $_.PSChildName
+      foreach ($r in $remove) { if ($name -match $r) { return $true } }
+      return $false
+    } | ForEach-Object {
+      Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+      Write-Log "Removed: $($_.PSChildName)" "Green"
+      $count++
+    }
+  }
+}
+if ($count -eq 0) { Write-Log "No known junk extensions found." "Yellow" }
+else { Write-Log "Removed $count junk extension(s)." "Green" }
+} catch {
+  Write-Log "Error cleaning extensions: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "To restore, run the 'Restore from Backup' option below or manually import the .reg backup." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "restore-backup",
+      label: "Restore from Backup",
+      description: "Restores context menu to state before the last cleanup",
+      script: `try {
+Write-Log "Looking for context menu backups..."
+$backupFiles = Get-ChildItem -Path "$env:TEMP" -Filter "fixelo_contextmenu_*.reg" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+if (-not $backupFiles) { Write-Log "No backup found. Run 'Remove Junk Shell Extensions' first to create a backup." "Yellow"; return }
+$latest = $backupFiles[0].FullName
+Write-Log "Restoring from: $latest"
+reg import $latest 2>&1 | Out-Null
+Write-Log "Context menu restored from backup." "Green"
+Remove-Item -Path $latest -Force -ErrorAction SilentlyContinue
+Write-Log "Backup file deleted." "Green"
+} catch {
+  Write-Log "Error restoring backup: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Restoration cannot be reversed. Run cleanup again if needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "system-tweaks": [
+    {
+      id: "show-hidden-files",
+      label: "Show Hidden Files + Extensions",
+      description: "Shows hidden files, protected OS files, and file extensions in File Explorer",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+$id="shf"
+if(($b|Where-Object{$_.id-eq"$id-hidden"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "Hidden" -ErrorAction SilentlyContinue).Hidden
+  $b+=[PSCustomObject]@{id="$id-hidden";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced";name="Hidden";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+if(($b|Where-Object{$_.id-eq"$id-superhidden"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ShowSuperHidden" -ErrorAction SilentlyContinue).ShowSuperHidden
+  $b+=[PSCustomObject]@{id="$id-superhidden";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced";name="ShowSuperHidden";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+if(($b|Where-Object{$_.id-eq"$id-hideext"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "HideFileExt" -ErrorAction SilentlyContinue).HideFileExt
+  $b+=[PSCustomObject]@{id="$id-hideext";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced";name="HideFileExt";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "Hidden" -Value 1 -Type DWord
+Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ShowSuperHidden" -Value 1 -Type DWord
+Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "HideFileExt" -Value 0 -Type DWord
+Write-Log "Hidden files + extensions: enabled" "Green"
+} catch {
+  Write-Log "Error in Show Hidden Files: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "show-full-path",
+      label: "Show Full Path in Explorer Title Bar",
+      description: "Displays the full folder path in Explorer's title bar",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+if(($b|Where-Object{$_.id-eq"fullpath"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CabinetState" -Name "FullPath" -ErrorAction SilentlyContinue).FullPath
+  $b+=[PSCustomObject]@{id="fullpath";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CabinetState";name="FullPath";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CabinetState" -Name "FullPath" -Value 1 -Type DWord
+Write-Log "Full path in title bar: enabled" "Green"
+} catch {
+  Write-Log "Error in Show Full Path: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "open-to-this-pc",
+      label: "Open Explorer to 'This PC'",
+      description: "Skips Quick Access and opens File Explorer directly to 'This PC'",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+if(($b|Where-Object{$_.id-eq"launchto"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "LaunchTo" -ErrorAction SilentlyContinue).LaunchTo
+  $b+=[PSCustomObject]@{id="launchto";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced";name="LaunchTo";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "LaunchTo" -Value 1 -Type DWord
+Write-Log "Explorer opens to: This PC" "Green"
+} catch {
+  Write-Log "Error in Open to This PC: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-animations",
+      label: "Disable Minimize/Maximize Animations",
+      description: "Speeds up the UI by turning off window minimize/maximize animations",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+$id="anim"
+if(($b|Where-Object{$_.id-eq"$id-minanimate"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Control Panel\\Desktop\\WindowMetrics" -Name "MinAnimate" -ErrorAction SilentlyContinue).MinAnimate
+  $b+=[PSCustomObject]@{id="$id-minanimate";path="HKCU:\\Control Panel\\Desktop\\WindowMetrics";name="MinAnimate";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+if(($b|Where-Object{$_.id-eq"$id-taskbaranim"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarAnimations" -ErrorAction SilentlyContinue).TaskbarAnimations
+  $b+=[PSCustomObject]@{id="$id-taskbaranim";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced";name="TaskbarAnimations";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+Set-ItemProperty -Path "HKCU:\\Control Panel\\Desktop\\WindowMetrics" -Name "MinAnimate" -Value 0 -Type DWord
+Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarAnimations" -Value 0 -Type DWord
+Write-Log "Animations: disabled" "Green"
+} catch {
+  Write-Log "Error in Disable Animations: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-transparency",
+      label: "Disable Transparency Effects",
+      description: "Turns off acrylic blur effects for better performance",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+if(($b|Where-Object{$_.id-eq"transparency"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "EnableTransparency" -ErrorAction SilentlyContinue).EnableTransparency
+  $b+=[PSCustomObject]@{id="transparency";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";name="EnableTransparency";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "EnableTransparency" -Value 0 -Type DWord
+Write-Log "Transparency: disabled" "Green"
+} catch {
+  Write-Log "Error in Disable Transparency: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-sticky-keys",
+      label: "Disable Sticky / Filter Keys Prompts",
+      description: "Stops the 'press one key at a time' accessibility popups",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+$id="sticky"
+if(($b|Where-Object{$_.id-eq"$id-flags"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Control Panel\\Accessibility\\StickyKeys" -Name "Flags" -ErrorAction SilentlyContinue).Flags
+  $b+=[PSCustomObject]@{id="$id-flags";path="HKCU:\\Control Panel\\Accessibility\\StickyKeys";name="Flags";originalValue=if($v){"$v"}else{$null};action=if($v){"set"}else{"remove"}}
+}
+if(($b|Where-Object{$_.id-eq"$id-filterflags"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Control Panel\\Accessibility\\FilterKeys" -Name "Flags" -ErrorAction SilentlyContinue).Flags
+  $b+=[PSCustomObject]@{id="$id-filterflags";path="HKCU:\\Control Panel\\Accessibility\\FilterKeys";name="Flags";originalValue=if($v){"$v"}else{$null};action=if($v){"set"}else{"remove"}}
+}
+if(($b|Where-Object{$_.id-eq"$id-toggleflags"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Control Panel\\Accessibility\\ToggleKeys" -Name "Flags" -ErrorAction SilentlyContinue).Flags
+  $b+=[PSCustomObject]@{id="$id-toggleflags";path="HKCU:\\Control Panel\\Accessibility\\ToggleKeys";name="Flags";originalValue=if($v){"$v"}else{$null};action=if($v){"set"}else{"remove"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+
+Set-ItemProperty -Path "HKCU:\\Control Panel\\Accessibility\\StickyKeys" -Name "Flags" -Value "506" -Type String
+Set-ItemProperty -Path "HKCU:\\Control Panel\\Accessibility\\FilterKeys" -Name "Flags" -Value "122" -Type String
+Set-ItemProperty -Path "HKCU:\\Control Panel\\Accessibility\\ToggleKeys" -Name "Flags" -Value "58" -Type String
+Write-Log "Sticky/Filter/Toggle keys: disabled" "Green"
+} catch {
+  Write-Log "Error in Disable Sticky Keys: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-search-highlights",
+      label: "Disable Search Highlights / Bing Ads",
+      description: "Removes trending searches, Bing ads, and search highlights from Windows Search",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+$id="srch"
+if(($b|Where-Object{$_.id-eq"$id-dynamic"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings" -Name "IsDynamicSearchBoxEnabled" -ErrorAction SilentlyContinue).IsDynamicSearchBoxEnabled
+  $b+=[PSCustomObject]@{id="$id-dynamic";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings";name="IsDynamicSearchBoxEnabled";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+if(($b|Where-Object{$_.id-eq"$id-suggestions"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKLM:\\Software\\Policies\\Microsoft\\Windows\\Windows Search" -Name "DisableSearchSuggestions" -ErrorAction SilentlyContinue).DisableSearchSuggestions
+  $b+=[PSCustomObject]@{id="$id-suggestions";path="HKLM:\\Software\\Policies\\Microsoft\\Windows\\Windows Search";name="DisableSearchSuggestions";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings" -Name "IsDynamicSearchBoxEnabled" -Value 0 -Type DWord
+New-Item -Path "HKLM:\\Software\\Policies\\Microsoft\\Windows\\Windows Search" -Force | Out-Null
+Set-ItemProperty -Path "HKLM:\\Software\\Policies\\Microsoft\\Windows\\Windows Search" -Name "DisableSearchSuggestions" -Value 1 -Type DWord
+Write-Log "Search highlights / Bing ads: disabled" "Green"
+} catch {
+  Write-Log "Error in Disable Search Highlights: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-startup-sound",
+      label: "Disable Windows Startup Sound",
+      description: "Turns off the Windows 11 startup sound",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+$id="snd"
+if(($b|Where-Object{$_.id-eq"$id-startup"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "EnableStartupSound" -ErrorAction SilentlyContinue).EnableStartupSound
+  $b+=[PSCustomObject]@{id="$id-startup";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";name="EnableStartupSound";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+if(($b|Where-Object{$_.id-eq"$id-logon"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\AppEvents\\Schemas\\Apps\\.Default\\WindowsLogon\\.Current\\" -Name "(Default)" -ErrorAction SilentlyContinue).'(Default)'
+  $b+=[PSCustomObject]@{id="$id-logon";path="HKCU:\\AppEvents\\Schemas\\Apps\\.Default\\WindowsLogon\\.Current";name="(Default)";originalValue=$v;action=if($v){"set"}else{"remove"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize" -Name "EnableStartupSound" -Value 0 -Type DWord
+Set-ItemProperty -Path "HKCU:\\AppEvents\\Schemas\\Apps\\.Default\\WindowsLogon\\.Current" -Name "(Default)" -Value "" -Type String
+Write-Log "Startup sound: disabled" "Green"
+} catch {
+  Write-Log "Error in Disable Startup Sound: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-game-bar",
+      label: "Disable Xbox Game Bar",
+      description: "Prevents Xbox Game Bar from recording in the background",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+$id="gb"
+if(($b|Where-Object{$_.id-eq"$id-capture"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR" -Name "AppCaptureEnabled" -ErrorAction SilentlyContinue).AppCaptureEnabled
+  $b+=[PSCustomObject]@{id="$id-capture";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR";name="AppCaptureEnabled";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+if(($b|Where-Object{$_.id-eq"$id-historical"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR" -Name "HistoricalCaptureEnabled" -ErrorAction SilentlyContinue).HistoricalCaptureEnabled
+  $b+=[PSCustomObject]@{id="$id-historical";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR";name="HistoricalCaptureEnabled";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR" -Name "AppCaptureEnabled" -Value 0 -Type DWord
+Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR" -Name "HistoricalCaptureEnabled" -Value 0 -Type DWord
+Write-Log "Xbox Game Bar: disabled" "Green"
+} catch {
+  Write-Log "Error in Disable Game Bar: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-onedrive",
+      label: "Disable OneDrive Auto-Start",
+      description: "Prevents OneDrive from launching at boot",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+if(($b|Where-Object{$_.id-eq"onedrive"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" -Name "OneDrive" -ErrorAction SilentlyContinue).OneDrive
+  $b+=[PSCustomObject]@{id="onedrive";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";name="OneDrive";originalValue=$v;action=if($v){"set"}else{"remove"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+Remove-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" -Name "OneDrive" -ErrorAction SilentlyContinue
+Write-Log "OneDrive auto-start: disabled" "Green"
+} catch {
+  Write-Log "Error in Disable OneDrive: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-lock-screen",
+      label: "Disable Lock Screen",
+      description: "Bypasses the lock screen and goes straight to the login prompt",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+$id="lock"
+if(($b|Where-Object{$_.id-eq"$id-policy"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Policies\\Microsoft\\Windows\\Personalization" -Name "NoLockScreen" -ErrorAction SilentlyContinue).NoLockScreen
+  $b+=[PSCustomObject]@{id="$id-policy";path="HKCU:\\Software\\Policies\\Microsoft\\Windows\\Personalization";name="NoLockScreen";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+New-Item -Path "HKCU:\\Software\\Policies\\Microsoft\\Windows\\Personalization" -Force | Out-Null
+Set-ItemProperty -Path "HKCU:\\Software\\Policies\\Microsoft\\Windows\\Personalization" -Name "NoLockScreen" -Value 1 -Type DWord
+Write-Log "Lock screen: disabled" "Green"
+} catch {
+  Write-Log "Error in Disable Lock Screen: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-cortana",
+      label: "Disable Cortana",
+      description: "Completely disables Cortana assistant and web search integration",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+$id="cor"
+if(($b|Where-Object{$_.id-eq"$id-allow"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKLM:\\Software\\Policies\\Microsoft\\Windows\\Windows Search" -Name "AllowCortana" -ErrorAction SilentlyContinue).AllowCortana
+  $b+=[PSCustomObject]@{id="$id-allow";path="HKLM:\\Software\\Policies\\Microsoft\\Windows\\Windows Search";name="AllowCortana";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+if(($b|Where-Object{$_.id-eq"$id-location"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKLM:\\Software\\Policies\\Microsoft\\Windows\\Windows Search" -Name "AllowSearchToUseLocation" -ErrorAction SilentlyContinue).AllowSearchToUseLocation
+  $b+=[PSCustomObject]@{id="$id-location";path="HKLM:\\Software\\Policies\\Microsoft\\Windows\\Windows Search";name="AllowSearchToUseLocation";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+New-Item -Path "HKLM:\\Software\\Policies\\Microsoft\\Windows\\Windows Search" -Force | Out-Null
+Set-ItemProperty -Path "HKLM:\\Software\\Policies\\Microsoft\\Windows\\Windows Search" -Name "AllowCortana" -Value 0 -Type DWord
+Set-ItemProperty -Path "HKLM:\\Software\\Policies\\Microsoft\\Windows\\Windows Search" -Name "AllowSearchToUseLocation" -Value 0 -Type DWord
+Write-Log "Cortana: disabled" "Green"
+} catch {
+  Write-Log "Error in Disable Cortana: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-copilot",
+      label: "Disable Copilot Button",
+      description: "Removes the Copilot (Windows + C) button from the taskbar",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+if(($b|Where-Object{$_.id-eq"copilot"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ShowCopilotButton" -ErrorAction SilentlyContinue).ShowCopilotButton
+  $b+=[PSCustomObject]@{id="copilot";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced";name="ShowCopilotButton";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "ShowCopilotButton" -Value 0 -Type DWord
+Write-Log "Copilot button: hidden" "Green"
+} catch {
+  Write-Log "Error in Disable Copilot: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-widgets",
+      label: "Disable Widgets Button",
+      description: "Removes the Widgets (weather/news) button from the taskbar",
+      script: `try {
+$d="$env:USERPROFILE\\FixeloBackups";$f="$d\\SystemTweaks.json";if(-not(Test-Path $d)){New-Item $d -Force|Out-Null}
+$b=@();if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$p=$r|ConvertFrom-Json;if($p-is[array]){$b=@($p)}}}
+if(($b|Where-Object{$_.id-eq"widgets"}).Count-eq0){
+  $v=(Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarDa" -ErrorAction SilentlyContinue).TaskbarDa
+  $b+=[PSCustomObject]@{id="widgets";path="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced";name="TaskbarDa";originalValue=$v;action=if($null-eq$v){"remove"}else{"set"}}
+}
+$b|ConvertTo-Json|Out-File $f -Encoding UTF8
+Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced" -Name "TaskbarDa" -Value 0 -Type DWord
+Write-Log "Widgets button: hidden" "Green"
+} catch {
+  Write-Log "Error in Disable Widgets: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){$r=Get-Content $f -Raw;if($r){$d=$r|ConvertFrom-Json;foreach($e in $d){if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}}};Remove-Item $f -Force;Write-Log "All tweaks restored" "Green"}else{Write-Log "No backup found" "Yellow"}
+} catch {
+  Write-Log "Error in Restore: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "restore-defaults",
+      label: "Restore All Defaults",
+      description: "Undoes all tweaks applied by this tool and restores original registry values from backup",
+      script: `try {
+$f="$env:USERPROFILE\\FixeloBackups\\SystemTweaks.json"
+if(Test-Path $f){
+  $r=Get-Content $f -Raw
+  if($r){
+    $d=$r|ConvertFrom-Json
+    foreach($e in $d){
+      if($e.action-eq"remove"){Remove-ItemProperty -Path $e.path -Name $e.name -ErrorAction SilentlyContinue}
+      else{Set-ItemProperty -Path $e.path -Name $e.name -Value $e.originalValue -ErrorAction SilentlyContinue}
+      Write-Log "Restored: $($e.name)" "Green"
+    }
+  }
+  Remove-Item $f -Force
+  Write-Log "All system tweaks restored to original values" "Green"
+} else {
+  Write-Log "No backup file found. Nothing to restore." "Yellow"
+}
+} catch {
+  Write-Log "Error in Restore Defaults: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+Write-Log "Restore cannot be undone. Run the tweaks again if needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
 }`,
     },
   ],

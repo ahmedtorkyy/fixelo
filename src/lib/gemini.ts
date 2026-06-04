@@ -2,6 +2,9 @@
 // which holds the provider keys server-side. No keys in the client bundle.
 
 async function callProxy(prompt: string, provider: "openrouter" | "groq"): Promise<string> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30000)
+
   const res = await fetch("/api/ai", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -9,7 +12,9 @@ async function callProxy(prompt: string, provider: "openrouter" | "groq"): Promi
       messages: [{ role: "user", content: prompt }],
       provider,
     }),
+    signal: controller.signal,
   })
+  clearTimeout(timeout)
 
   if (!res.ok) {
     const body = await res.text().catch(() => "")
@@ -30,7 +35,7 @@ async function callProxy(prompt: string, provider: "openrouter" | "groq"): Promi
 
 export async function generateContent(prompt: string): Promise<string> {
   const errors: string[] = []
-  for (const provider of ["openrouter", "groq"] as const) {
+  for (const provider of ["groq", "openrouter"] as const) {
     try {
       const result = await callProxy(prompt, provider)
       console.log(`[AI] ${provider} responded`)

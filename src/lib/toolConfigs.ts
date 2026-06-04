@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react"
-import { Gamepad2, Shield, Monitor, Rocket, Wifi, CalendarCheck, WifiOff, RefreshCw, Gauge, AlertTriangle, Volume2, MonitorSmartphone, FileWarning, HardDrive, Printer, Usb, Battery, Zap, Moon, LayoutDashboard, Timer, FolderSync, Cpu, Package, Code, Lock } from "lucide-react"
+import { Gamepad2, Shield, ShieldCheck, Monitor, Rocket, Wifi, CalendarCheck, WifiOff, RefreshCw, Gauge, AlertTriangle, Volume2, MonitorSmartphone, FileWarning, HardDrive, Printer, Usb, Battery, Zap, Moon, LayoutDashboard, Timer, FolderSync, Cpu, Package, Code, Lock, Search, Bluetooth, FolderSearch, Clock, Wrench, Store, Keyboard, Camera, List, Router, KeyRound, Binary, Type, Fingerprint, Globe, CalendarDays, AppWindow, FileType, SlidersHorizontal } from "lucide-react"
 
 export interface ToolOption {
   id: string
@@ -397,14 +397,14 @@ export const TOOLS: Record<string, ToolConfig> = {
     icon: Cpu,
     description: "Scans for outdated drivers, shows device names, generates update scripts.",
     longDescription:
-      "Outdated drivers can cause crashes, blue screens, and hardware problems. This tool scans your system for all installed drivers, identifies which ones are outdated, and generates a script to update them from official manufacturer sources via Winget.",
+      "Outdated drivers can cause crashes, blue screens, and hardware problems. This tool scans your system for all installed drivers, identifies which ones are outdated, and updates them via Windows Update's built-in driver delivery — no third-party tools needed.",
     category: "Setup & Installation",
     options: [
       { id: "scan-all", label: "Scan All Drivers", description: "Lists all installed drivers with their versions and dates", defaultValue: true },
-      { id: "identify-outdated", label: "Identify Outdated Drivers", description: "Flags drivers that are significantly outdated", defaultValue: true },
-      { id: "update-gpu", label: "Update GPU Driver", description: "Downloads and installs the latest GPU driver from the manufacturer", defaultValue: true },
-      { id: "update-network", label: "Update Network Driver", description: "Updates the network adapter driver", defaultValue: true },
-      { id: "update-audio", label: "Update Audio Driver", description: "Updates the audio driver to the latest version", defaultValue: false },
+      { id: "identify-outdated", label: "Identify Outdated Drivers", description: "Flags drivers that are significantly outdated", defaultValue: false },
+      { id: "update-gpu", label: "Update GPU Driver", description: "Downloads and installs the latest GPU driver from Windows Update", defaultValue: true },
+      { id: "update-network", label: "Update Network Driver", description: "Downloads and installs the latest network driver from Windows Update", defaultValue: true },
+      { id: "update-audio", label: "Update Audio Driver", description: "Downloads and installs the latest audio driver from Windows Update", defaultValue: false },
     ],
   },
   "winget-installer": {
@@ -455,6 +455,294 @@ export const TOOLS: Record<string, ToolConfig> = {
       { id: "web-filter", label: "Enable Web Filtering", description: "Blocks inappropriate websites and enables SafeSearch", defaultValue: true },
       { id: "block-store", label: "Block Microsoft Store Purchases", description: "Prevents purchases and downloads from the Microsoft Store", defaultValue: true },
       { id: "activity-reports", label: "Enable Activity Reports", description: "Turns on weekly activity reports so you can see what the child account did", defaultValue: true },
+    ],
+  },
+  "virus-scanner": {
+    slug: "virus-scanner",
+    title: "Virus & Malware Scanner",
+    icon: ShieldCheck,
+    description: "Runs Windows Defender scans (quick, full, or custom folder) and updates virus definitions.",
+    longDescription:
+      "Scan your system for viruses, malware, and suspicious files using Windows Defender's built-in command-line scanner (MpCmdRun.exe). This tool can run a quick scan of active malware locations, a full system scan, or scan a specific folder. It also updates virus definitions before scanning to catch the latest threats.",
+    category: "Privacy & Security",
+    options: [
+      { id: "quick-scan", label: "Quick Scan", description: "Scans active malware locations (fastest)", defaultValue: true },
+      { id: "full-scan", label: "Full System Scan", description: "Scans every file and running program on your system (slowest but most thorough)", defaultValue: false },
+      { id: "custom-scan", label: "Scan a Specific Folder", description: "Scans a folder path you specify for threats", defaultValue: false, type: "text", placeholder: "C:\\Path\\To\\Folder" },
+      { id: "update-defs", label: "Update Virus Definitions", description: "Downloads the latest virus definitions before scanning", defaultValue: true },
+      { id: "check-status", label: "Check Defender Status", description: "Verifies Windows Defender is running and up to date", defaultValue: false },
+    ],
+  },
+  "windows-search-fix": {
+    slug: "windows-search-fix",
+    title: "Windows Search Fix",
+    icon: Search,
+    description: "Rebuilds the search index, restarts WSearch service, and clears search history.",
+    longDescription:
+      "If Windows Search is not finding files or is slow, this tool rebuilds the search index, restarts the Windows Search service, and clears recent search history. No data is deleted — only the index is rebuilt for better performance.",
+    category: "Fix Tools",
+    options: [
+      { id: "rebuild-index", label: "Rebuild Search Index", description: "Stops WSearch, clears the index, restarts the service to force a full rebuild", defaultValue: true },
+      { id: "restart-wsearch", label: "Restart Search Service", description: "Restarts the Windows Search service (fixes temporary glitches)", defaultValue: true },
+      { id: "clear-history", label: "Clear Search History", description: "Clears recent search queries from Windows Search", defaultValue: false },
+    ],
+  },
+  "bluetooth-fix": {
+    slug: "bluetooth-fix",
+    title: "Bluetooth Troubleshooter",
+    icon: Bluetooth,
+    description: "Restarts Bluetooth service, resets the adapter, and scans for devices.",
+    longDescription:
+      "If Bluetooth is not finding devices, keeps disconnecting, or the adapter is missing, this tool restarts the Bluetooth service, resets the Bluetooth adapter, and scans for hardware changes to bring it back.",
+    category: "Fix Tools",
+    options: [
+      { id: "restart-bthserv", label: "Restart Bluetooth Service", description: "Restarts the Bluetooth Support Service", defaultValue: true },
+      { id: "reset-adapter", label: "Reset Bluetooth Adapter", description: "Disables and re-enables the Bluetooth radio to force a fresh start", defaultValue: true },
+      { id: "scan-devices", label: "Scan for Bluetooth Hardware", description: "Triggers a hardware scan so Windows re-detects Bluetooth devices", defaultValue: true },
+    ],
+  },
+  "explorer-fix": {
+    slug: "explorer-fix",
+    title: "File Explorer Fixer",
+    icon: FolderSearch,
+    description: "Clears thumbnail cache, restarts File Explorer, and repairs folder view settings.",
+    longDescription:
+      "If File Explorer is crashing, thumbnails are not showing, folder views are messed up, or the interface feels sluggish, this tool clears the thumbnail cache, restarts Explorer, and resets corrupted folder view settings.",
+    category: "Fix Tools",
+    options: [
+      { id: "clear-thumbcache", label: "Clear Thumbnail Cache", description: "Deletes the thumbnail cache so Windows regenerates thumbnails fresh", defaultValue: true },
+      { id: "restart-explorer", label: "Restart File Explorer", description: "Terminates and restarts Explorer.exe (fixes UI glitches and crashes)", defaultValue: true },
+      { id: "repair-views", label: "Reset Folder Views", description: "Resets corrupted per-folder view settings (layout, sort, grouping) to defaults", defaultValue: false },
+    ],
+  },
+  "clock-sync": {
+    slug: "clock-sync",
+    title: "Clock Sync Fix",
+    icon: Clock,
+    description: "Resync your PC clock, restart Windows Time service, and configure reliable time servers.",
+    longDescription:
+      "If your clock keeps losing time, showing the wrong date, or time sync keeps failing, this tool resyncs with an internet time server, restarts the Windows Time service, sets reliable NTP servers, and enables automatic sync so your clock stays accurate.",
+    category: "Fix Tools",
+    options: [
+      { id: "resync-time", label: "Resync Clock with Time Server", description: "Forces an immediate sync with your configured internet time server", defaultValue: true },
+      { id: "restart-w32time", label: "Restart Windows Time Service", description: "Stops and restarts the W32Time service (fixes stuck time sync)", defaultValue: true },
+      { id: "change-server", label: "Set Reliable Time Servers", description: "Configures time.windows.com and pool.ntp.org as fallback servers", defaultValue: false },
+      { id: "enable-auto", label: "Enable Automatic Time Sync", description: "Ensures W32Time auto-starts and syncs periodically", defaultValue: true },
+    ],
+  },
+  "troubleshooter-runner": {
+    slug: "troubleshooter-runner",
+    title: "Windows Troubleshooter Runner",
+    icon: Wrench,
+    description: "Launch Microsoft's built-in troubleshooters for network, audio, printer, and more.",
+    longDescription:
+      "Windows includes built-in troubleshooters that can automatically detect and fix many common problems. This tool lets you launch the Network, Audio, Printer, or Windows Update troubleshooters directly, or run all of them in sequence.",
+    category: "Fix Tools",
+    options: [
+      { id: "run-network", label: "Run Network Troubleshooter", description: "Diagnoses and fixes network adapter and internet connection issues", defaultValue: true },
+      { id: "run-audio", label: "Run Audio Troubleshooter", description: "Detects and fixes audio playback problems", defaultValue: false },
+      { id: "run-printer", label: "Run Printer Troubleshooter", description: "Finds and resolves printer driver and connection problems", defaultValue: false },
+      { id: "run-update", label: "Run Windows Update Troubleshooter", description: "Fixes Windows Update stuck or failing downloads", defaultValue: false },
+      { id: "run-all", label: "Run All Common Troubleshooters", description: "Runs network, audio, printer, update, and maintenance troubleshooters in sequence", defaultValue: false },
+    ],
+  },
+  "store-fix": {
+    slug: "store-fix",
+    title: "Microsoft Store Fix",
+    icon: Store,
+    description: "Reset Store cache, re-register the Store app, and fix download errors.",
+    longDescription:
+      "If the Microsoft Store won't open, apps won't download or install, or the Store is stuck loading, this tool resets the Store cache using wsreset.exe, re-registers the Store app package, and restarts Store-related services to get it working again.",
+    category: "Fix Tools",
+    options: [
+      { id: "reset-cache", label: "Reset Store Cache", description: "Runs wsreset.exe to clear the Store's temporary cache", defaultValue: true },
+      { id: "reregister-store", label: "Re-register Microsoft Store", description: "Re-registers the Store app via PowerShell to fix broken installations", defaultValue: true },
+      { id: "fix-store-service", label: "Fix Store Install Service", description: "Restarts and enables the Store Install Service (InstallService)", defaultValue: true },
+    ],
+  },
+  "network-stack-reset": {
+    slug: "network-stack-reset",
+    title: "Network Stack Reset",
+    icon: Router,
+    description: "Flush DNS, reset Winsock, reset TCP/IP stack, and renew IP configuration.",
+    longDescription:
+      "If your internet is completely broken, DNS is not resolving, you're getting network errors, or nothing else has fixed connectivity, this tool flushes the DNS resolver cache, resets the Winsock catalog, resets the TCP/IP stack to default, and releases/renews your IP address. This is the nuclear option for network issues.",
+    category: "Fix Tools",
+    options: [
+      { id: "flush-dns", label: "Flush DNS Cache", description: "Clears the DNS resolver cache so Windows re-queries DNS servers", defaultValue: true },
+      { id: "reset-winsock", label: "Reset Winsock", description: "Resets the Winsock catalog to a clean state (fixes socket errors)", defaultValue: true },
+      { id: "reset-tcpip", label: "Reset TCP/IP Stack", description: "Resets the entire TCP/IP stack to Windows defaults", defaultValue: true },
+      { id: "release-renew", label: "Release & Renew IP", description: "Releases current IP and requests a new one from DHCP", defaultValue: false },
+    ],
+  },
+  "activation-fix": {
+    slug: "activation-fix",
+    title: "Windows Activation Fix",
+    icon: KeyRound,
+    description: "Check activation status, force online activation, and refresh your Windows license.",
+    longDescription:
+      "If you see 'Activate Windows' watermark, get activation errors, or Windows was deactivated after a hardware change, this tool checks your current activation status, attempts online activation with Microsoft's servers, and refreshes the license state.",
+    category: "Fix Tools",
+    options: [
+      { id: "check-status", label: "Check Activation Status", description: "Displays your current Windows activation state and product key details", defaultValue: true },
+      { id: "activate-online", label: "Attempt Online Activation", description: "Forces Windows to contact Microsoft servers to activate", defaultValue: true },
+      { id: "refresh-license", label: "Refresh License State", description: "Checks status first, then attempts activation if not activated", defaultValue: false },
+    ],
+  },
+  "keyboard-mouse-fix": {
+    slug: "keyboard-mouse-fix",
+    title: "Keyboard & Mouse Fix",
+    icon: Keyboard,
+    description: "Reset keyboard, mouse, and touchpad drivers; fix stuck keys and HID services.",
+    longDescription:
+      "If your keyboard is not typing, mouse cursor is frozen, touchpad stopped working, or keys are stuck, this tool resets the keyboard and mouse drivers, restarts HID services, clears sticky/filter key states, and re-enables the touchpad.",
+    category: "Fix Tools",
+    options: [
+      { id: "reset-keyboard", label: "Reset Keyboard Driver", description: "Disables and re-enables the keyboard to force driver reinstall", defaultValue: true },
+      { id: "reset-mouse", label: "Reset Mouse Driver", description: "Disables and re-enables the mouse to force driver reinstall", defaultValue: true },
+      { id: "reset-hid", label: "Restart HID Services", description: "Restarts Human Interface Device services for both keyboard and mouse", defaultValue: true },
+      { id: "fix-sticky-keys", label: "Clear Stuck Key Settings", description: "Resets StickyKeys, FilterKeys, and ToggleKeys to defaults", defaultValue: false },
+      { id: "check-touchpad", label: "Re-enable Touchpad", description: "Checks if touchpad is disabled and re-enables it", defaultValue: false },
+    ],
+  },
+  "runtime-installer": {
+    slug: "runtime-installer",
+    title: "Windows Runtime Installer",
+    icon: Binary,
+    description: "One-click install .NET Desktop Runtime, VC++ Redist, and DirectX.",
+    longDescription:
+      "Many games and applications require the latest .NET Desktop Runtime, Visual C++ Redistributables, and DirectX to run properly. This tool installs all essential Windows runtimes using winget and official Microsoft download links so your software stops complaining about missing DLLs.",
+    category: "Setup & Installation",
+    options: [
+      { id: "install-dotnet", label: "Install .NET Desktop Runtime", description: "Installs the latest .NET Desktop Runtime via winget (required for WPF apps)", defaultValue: true },
+      { id: "install-vcredist", label: "Install VC++ Redistributable", description: "Installs the latest Visual C++ Redistributable (2015-2022) via winget", defaultValue: true },
+      { id: "install-directx", label: "Install DirectX Runtime", description: "Downloads and runs the DirectX End-User Runtime Web Installer", defaultValue: true },
+    ],
+  },
+  "font-cache-fix": {
+    slug: "font-cache-fix",
+    title: "Windows Font Cache Fix",
+    icon: Type,
+    description: "Rebuild font cache, reset font registry, and fix missing/corrupt fonts.",
+    longDescription:
+      "If fonts are showing as squares, text looks wrong, characters are missing, or fonts appear corrupt in apps, this tool stops the Font Cache service, deletes corrupted cache files, and resets font-related registry entries so Windows rebuilds the font cache fresh.",
+    category: "Fix Tools",
+    options: [
+      { id: "rebuild-cache", label: "Rebuild Font Cache", description: "Stops FontCache service, deletes cache files, and restarts it", defaultValue: true },
+      { id: "reset-font-registry", label: "Reset Font Registry", description: "Cleans up corrupted font entries in the Windows registry", defaultValue: true },
+    ],
+  },
+  "windows-hello-fix": {
+    slug: "windows-hello-fix",
+    title: "Windows Hello & PIN Fix",
+    icon: Fingerprint,
+    description: "Restart biometric service, check TPM, and fix PIN sign-in issues.",
+    longDescription:
+      "If Windows Hello fingerprint, facial recognition, or PIN sign-in stops working after an update, this tool restarts the Windows Biometric Service, checks TPM status, restarts the Credential Manager, and detects Hello hardware so you can sign in again.",
+    category: "Fix Tools",
+    options: [
+      { id: "restart-biometric", label: "Restart Biometric Service", description: "Restarts the Windows Biometric Service (WbioSrvc)", defaultValue: true },
+      { id: "check-tpm", label: "Check TPM Status", description: "Checks if your TPM chip is enabled and ready for Windows Hello", defaultValue: true },
+      { id: "restart-credential-manager", label: "Restart Credential Manager", description: "Restarts VaultSvc to resolve PIN credential issues", defaultValue: true },
+      { id: "detect-hello", label: "Detect Hello Hardware", description: "Scans for biometric hardware (fingerprint, IR camera) and enables them", defaultValue: false },
+    ],
+  },
+  "date-time-format-fix": {
+    slug: "date-time-format-fix",
+    title: "Date & Time Format Fix",
+    icon: CalendarDays,
+    description: "Reset region settings, fix date/time format, and set calendar preferences.",
+    longDescription:
+      "If dates show in the wrong format (MM/DD vs DD/MM), time is in 12-hour when you want 24-hour, or the calendar starts on the wrong day, this tool resets your region and locale settings, configures date and time format, and sets calendar preferences like the first day of the week.",
+    category: "Customization",
+    options: [
+      { id: "reset-region", label: "Reset Region Settings", description: "Resets region, locale, and format settings to system defaults", defaultValue: true },
+      { id: "fix-date-format", label: "Set Short Date Format", description: "Sets short date to DD/MM/YYYY format (common international format)", defaultValue: true },
+      { id: "fix-time-format", label: "Set 24-Hour Format", description: "Sets time to 24-hour format (HH:mm) instead of 12-hour", defaultValue: false },
+      { id: "fix-first-day", label: "Set Monday as First Day", description: "Sets Monday as the first day of the week in calendar settings", defaultValue: false },
+    ],
+  },
+  "windows-apps-repair": {
+    slug: "windows-apps-repair",
+    title: "Windows Apps Repair",
+    icon: AppWindow,
+    description: "Re-register all built-in Windows apps, reset caches, and fix crashing apps.",
+    longDescription:
+      "If built-in Windows apps like Calculator, Photos, Mail, or Alarms won't open, crash on launch, or show blank screens, this tool re-registers all built-in app packages, resets their cached data, and re-registers at the system level so Windows rebuilds the app packages fresh.",
+    category: "Fix Tools",
+    options: [
+      { id: "reinstall-all-apps", label: "Re-register All Apps", description: "Re-registers ALL built-in Windows app packages for your user account", defaultValue: true },
+      { id: "reset-app-caches", label: "Reset App Caches", description: "Clears cached data for Calculator, Photos, Mail, Alarms, and more", defaultValue: true },
+      { id: "system-apps-fix", label: "Fix System-Level Apps", description: "Re-registers app packages for ALL users on this PC (admin required)", defaultValue: false },
+    ],
+  },
+  "file-association-guardian": {
+    slug: "file-association-guardian",
+    title: "File Association Guardian",
+    icon: FileType,
+    description: "Backup, restore, and scan file associations to stop apps from hijacking your defaults.",
+    longDescription:
+      "Every time you install a new app, it can hijack your file associations — suddenly .pdf opens in Edge, .mp3 in a new player, .html in a different browser. This tool backs up every file extension → app mapping, lets you restore them all with one click, and scans for changes since your last backup.",
+    category: "Customization",
+    options: [
+      { id: "backup-associations", label: "Backup All Associations", description: "Saves every file extension and app mapping to a .reg file + JSON snapshot", defaultValue: true },
+      { id: "restore-backup", label: "Restore from Backup", description: "Restores all file associations from the most recent backup", defaultValue: false },
+      { id: "scan-hijacks", label: "Scan for Changes", description: "Compares current associations against backup to detect hijacks", defaultValue: false },
+    ],
+  },
+  "camera-fix": {
+    slug: "camera-fix",
+    title: "Camera & Webcam Fix",
+    icon: Camera,
+    description: "Restart camera service, reinstall driver, and enable privacy permissions.",
+    longDescription:
+      "If your webcam or camera is not detected, showing a black screen, or not working in apps, this tool restarts the Windows Camera Frame Server, reinstalls the camera driver, enables camera access in privacy settings, and scans for hardware changes.",
+    category: "Fix Tools",
+    options: [
+      { id: "restart-camera-service", label: "Restart Camera Service", description: "Restarts the Windows Camera Frame Server (FrameServer)", defaultValue: true },
+      { id: "reset-camera-driver", label: "Reinstall Camera Driver", description: "Disables and re-enables the camera device to force driver refresh", defaultValue: true },
+      { id: "check-privacy-permissions", label: "Enable Camera Privacy", description: "Ensures camera access is allowed in Windows privacy settings", defaultValue: true },
+      { id: "scan-camera-hardware", label: "Scan for Camera Hardware", description: "Triggers a hardware scan to detect unrecognized cameras", defaultValue: false },
+    ],
+  },
+  "system-tweaks": {
+    slug: "system-tweaks",
+    title: "System Tweaks",
+    icon: SlidersHorizontal,
+    description: "Power-user Windows tweaks: show hidden files, disable animations, clean up taskbar, and more. All reversible.",
+    longDescription:
+      "Tweak Windows to work the way you want. This tool includes power-user favorites like showing hidden files and file extensions, opening Explorer to 'This PC', disabling animations for a snappier UI, removing the Copilot and Widgets buttons, disabling OneDrive and Cortana, and more. Every change is reversible — original registry values are backed up before modification, and you can restore all defaults with one click.",
+    category: "Customization",
+    options: [
+      { id: "show-hidden-files", label: "Show Hidden Files + Extensions", description: "Shows hidden files, protected OS files, and file extensions in File Explorer", defaultValue: true },
+      { id: "show-full-path", label: "Show Full Path in Explorer Title Bar", description: "Displays the full folder path (e.g. C:\\Users\\Name\\Documents) in Explorer's title bar", defaultValue: true },
+      { id: "open-to-this-pc", label: "Open Explorer to 'This PC'", description: "Skips Quick Access and opens File Explorer directly to 'This PC' view", defaultValue: true },
+      { id: "disable-animations", label: "Disable Minimize/Maximize Animations", description: "Speeds up the UI by turning off window minimize/maximize animations — helpful for screen readers too", defaultValue: false },
+      { id: "disable-transparency", label: "Disable Transparency Effects", description: "Turns off acrylic blur effects for better performance", defaultValue: false },
+      { id: "disable-sticky-keys", label: "Disable Sticky / Filter Keys Prompts", description: "Stops the annoying 'press one key at a time' popups from accessibility settings", defaultValue: true },
+      { id: "disable-search-highlights", label: "Disable Search Highlights / Bing Ads", description: "Removes trending searches, Bing ads, and 'search highlights' from Windows Search", defaultValue: true },
+      { id: "disable-startup-sound", label: "Disable Windows Startup Sound", description: "Turns off the Windows 11 startup sound (Microsoft removed the toggle in Settings)", defaultValue: false },
+      { id: "disable-game-bar", label: "Disable Xbox Game Bar", description: "Prevents Xbox Game Bar from recording in the background and eating resources", defaultValue: false },
+      { id: "disable-onedrive", label: "Disable OneDrive Auto-Start", description: "Prevents OneDrive from launching at boot — frees up startup time", defaultValue: false },
+      { id: "disable-lock-screen", label: "Disable Lock Screen", description: "Bypasses the lock screen and goes straight to the login prompt", defaultValue: false },
+      { id: "disable-cortana", label: "Disable Cortana", description: "Completely disables Cortana assistant and its web search integration", defaultValue: false },
+      { id: "disable-copilot", label: "Disable Copilot Button", description: "Removes the Copilot (Windows + C) button from the taskbar", defaultValue: true },
+      { id: "disable-widgets", label: "Disable Widgets Button", description: "Removes the Widgets (weather/news) button from the taskbar", defaultValue: true },
+      { id: "restore-defaults", label: "★ Restore All Defaults", description: "Undoes all tweaks applied by this tool and restores original registry values from backup", defaultValue: false },
+    ],
+  },
+  "context-menu-cleaner": {
+    slug: "context-menu-cleaner",
+    title: "Right Click Menu Cleaner",
+    icon: List,
+    description: "Clean up cluttered context menus by removing unwanted shell extensions.",
+    longDescription:
+      "If your right-click menu is slow, has too many items, or takes forever to open, this tool cleans out unwanted shell extensions from File Explorer, clears the Send To menu, and can restore your previous menu state from a backup.",
+    category: "Customization",
+    options: [
+      { id: "clean-sendto", label: "Clean Send To Menu", description: "Removes unnecessary items from the Send To context menu", defaultValue: true },
+      { id: "clean-extensions", label: "Remove Junk Shell Extensions", description: "Removes known bloat extensions with automatic registry backup", defaultValue: true },
+      { id: "restore-backup", label: "Restore from Backup", description: "Restores context menu to state before the last cleanup (undo)", defaultValue: false },
     ],
   },
 }

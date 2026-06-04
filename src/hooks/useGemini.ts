@@ -91,6 +91,10 @@ export function useGemini() {
     []
   )
 
+  const setResult = useCallback((result: FixResult | null) => {
+    setFixResult(result)
+  }, [])
+
   const reset = useCallback(() => {
     setFixResult(null)
     setDiagnosisResult(null)
@@ -106,6 +110,7 @@ export function useGemini() {
     generateScript,
     generateBatchScript,
     generateDiagnosisFromLog,
+    setResult,
     reset,
   }
 }

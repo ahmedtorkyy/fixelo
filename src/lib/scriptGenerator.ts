@@ -19,6 +19,9 @@ const FABRICATED_CMDLETS = [
   'Get-Process -Name "System Sounds"',
   "Get-Process -Name 'System Sounds'",
   "Get-AudioDevice",
+  "Set-AudioDevice",
+  "Set-Microphone",
+  "Get-Microphone",
   "Win32_Volume.SetVolume",
   "AudioDeviceCmdlets",
   "MSiTunes_Sound_Device",
@@ -30,6 +33,9 @@ const FABRICATED_CMDLETS = [
   "Set-PowerPlan",
   "Disable-VisualEffects",
   "Empty-RecycleBin",
+  "Get-ScreenResolution",
+  "Set-ScreenResolution",
+  "Get-DefaultPrinter",
   ".Delete()",
   ".Activate()",
   '.Recycle.Bin',
@@ -87,13 +93,53 @@ export function cleanJsonResponse(raw: string): string {
   return cleaned.substring(firstBrace)
 }
 
+// Ensure the script's PowerShell body includes desktop log save + clipboard
+function ensureLogFooter(script: string): string {
+  // If it already has the desktop log save pattern, leave it alone
+  if (script.includes("USERPROFILE\\Desktop\\Fixelo_Log.txt") || script.includes("USERPROFILE/Desktop/Fixelo_Log.txt")) {
+    return script
+  }
+  // If it has __PSSCRIPT__, inject before the final Read-Host inside the PS section
+  const psMarker = "__PSSCRIPT__"
+  const psIdx = script.indexOf(psMarker)
+  if (psIdx !== -1) {
+    const psSection = script.substring(psIdx + psMarker.length)
+    const readHostIdx = psSection.lastIndexOf("Read-Host")
+    if (readHostIdx !== -1) {
+      const before = script.substring(0, psIdx + psMarker.length + readHostIdx)
+      const after = script.substring(psIdx + psMarker.length + readHostIdx)
+      const footer = `$logPath = "$env:USERPROFILE\\Desktop\\Fixelo_Log.txt"
+[IO.File]::WriteAllText($logPath, $script:log, [Text.Encoding]::UTF8)
+try { Set-Clipboard -Value $script:log } catch {}
+Write-Log "Log saved to your Desktop as Fixelo_Log.txt" "Green"
+`
+      return before + footer + after
+    }
+    // No Read-Host found; append footer at end of PS section
+    const footer = `
+$logPath = "$env:USERPROFILE\\Desktop\\Fixelo_Log.txt"
+[IO.File]::WriteAllText($logPath, $script:log, [Text.Encoding]::UTF8)
+try { Set-Clipboard -Value $script:log } catch {}
+Write-Log "Log saved to your Desktop as Fixelo_Log.txt" "Green"
+Read-Host "Press Enter to close"`
+    return script + footer
+  }
+  // No __PSSCRIPT__ at all — just append
+  return script + `
+$logPath = "$env:USERPROFILE\\Desktop\\Fixelo_Log.txt"
+[IO.File]::WriteAllText($logPath, $script:log, [Text.Encoding]::UTF8)
+try { Set-Clipboard -Value $script:log } catch {}
+Write-Log "Log saved to your Desktop as Fixelo_Log.txt" "Green"
+Read-Host "Press Enter to close"`
+}
+
 function parseFixResult(json: Record<string, unknown>): FixResult {
   return {
     problemSummary: String(json.problemSummary ?? ""),
     whatItDoes: String(json.whatItDoes ?? ""),
     whatItDoesNotTouch: String(json.whatItDoesNotTouch ?? ""),
-    fixScript: String(json.fixScript ?? ""),
-    undoScript: String(json.undoScript ?? ""),
+    fixScript: ensureLogFooter(String(json.fixScript ?? "")),
+    undoScript: ensureLogFooter(String(json.undoScript ?? "")),
     scriptSafetyNotes: String(json.scriptSafetyNotes ?? ""),
   }
 }
@@ -104,10 +150,10 @@ async function attemptWithRetry(
   const tryGenerate = async (attempt: number): Promise<FixResult> => {
     let prompt = buildPrompt()
     if (attempt === 2) {
-      prompt += "\n\nIMPORTANT: Your previous response contained non-existent PowerShell cmdlets. Use ONLY the proven cmdlets listed in the rules above. Do NOT invent cmdlet names. If you are unsure, use reg.exe, netsh, sc.exe, or COM objects."
+      prompt += "\n\nIMPORTANT: Your previous response contained non-existent PowerShell cmdlets. Use ONLY the proven cmdlets listed in the rules above. Do NOT invent cmdlet names. If you are unsure, use reg.exe, netsh, sc.exe, dism, sfc, powercfg, or COM objects (New-Object -ComObject)."
     }
     if (attempt === 3) {
-      prompt += "\n\nSECOND RETRY: You MUST use only the proven commands from the rules. No Set-DefaultAudioDevice, no Set-Volume, no Get-Process -Name 'System Sounds', no fabricated cmdlets of any kind. Use netsh, reg.exe, sc.exe, Get-Service, Get-PnpDevice, ipconfig, or COM objects. If you use a made-up cmdlet the script will be rejected again."
+      prompt += "\n\nSECOND RETRY: You MUST use only the proven commands from the rules. No Set-DefaultAudioDevice, no Set-Volume, no Get-Process -Name 'System Sounds', no fabricated cmdlets of any kind. Use proven real cmdlets from the list: reg.exe, netsh, sc.exe, dism, sfc, powercfg, ipconfig, Get-Service, Get-PnpDevice, Get-CimInstance, Get-ItemProperty, Set-ItemProperty, or COM objects (New-Object -ComObject). If you use a made-up cmdlet the script will be rejected again."
     }
     let raw: string
     try {

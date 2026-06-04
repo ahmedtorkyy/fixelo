@@ -65,6 +65,16 @@ const DOMAIN_GUIDANCE: Record<string, string> = {
     "Set-ItemProperty, Remove-ItemProperty, schtasks.exe. " +
     "Disable telemetry via registry, stop DiagTrack service, " +
     "block tracking domains via hosts file or firewall rules.",
+  "VirusScanner":
+    "For virus/malware scanning: MpCmdRun.exe is Windows Defender's command-line scanner. " +
+    "Path: \"$env:ProgramFiles\\Windows Defender\\MpCmdRun.exe\". " +
+    "-SignatureUpdate updates virus definitions. " +
+    "-Scan -ScanType 1 runs a quick scan. " +
+    "-Scan -ScanType 2 runs a full scan. " +
+    "-Scan -ScanType 3 -File \"path\" scans a specific file or folder. " +
+    "Exit code 0 = no threats found. Exit code 2 = threats found and handled. " +
+    "Do NOT disable Windows Defender. Do NOT add exclusions. " +
+    "Get-CimInstance -Namespace root\\Microsoft\\Windows\\Defender -ClassName MSFT_MpComputerStatus for real-time protection status.",
   "Customization":
     "For customization: reg.exe, Set-ItemProperty, New-ItemProperty. " +
     "Use Test-Path before accessing registry keys. " +
@@ -89,6 +99,7 @@ function getDomainGuidance(tool: ToolConfig): string {
   if (title.includes("usb")) return DOMAIN_GUIDANCE["USB"]
   if (title.includes("disk") || title.includes("drive") || title.includes("corrupted")) return DOMAIN_GUIDANCE["Disk"]
   if (title.includes("display") || title.includes("resolution")) return DOMAIN_GUIDANCE["Display"]
+  if (title.includes("virus") || title.includes("malware") || title.includes("defender") || title.includes("scan")) return DOMAIN_GUIDANCE["VirusScanner"]
   if (category.includes("performance")) return DOMAIN_GUIDANCE["Performance"]
   if (category.includes("privacy") || category.includes("security")) return DOMAIN_GUIDANCE["Privacy"]
   if (category.includes("customization")) return DOMAIN_GUIDANCE["Customization"]

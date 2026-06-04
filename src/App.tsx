@@ -36,6 +36,25 @@ import DriverManagerPage from "@/pages/tools/DriverManager"
 import WingetInstallerPage from "@/pages/tools/WingetInstaller"
 import DevEnvironmentPage from "@/pages/tools/DevEnvironment"
 import ParentalControlsPage from "@/pages/tools/ParentalControls"
+import VirusScannerPage from "@/pages/tools/VirusScanner"
+import WindowsSearchFixPage from "@/pages/tools/WindowsSearchFix"
+import BluetoothFixPage from "@/pages/tools/BluetoothFix"
+import ExplorerFixPage from "@/pages/tools/ExplorerFix"
+import ClockSyncPage from "@/pages/tools/ClockSync"
+import TroubleshooterRunnerPage from "@/pages/tools/TroubleshooterRunner"
+import StoreFixPage from "@/pages/tools/StoreFix"
+import NetworkStackResetPage from "@/pages/tools/NetworkStackReset"
+import ActivationFixPage from "@/pages/tools/ActivationFix"
+import KeyboardMouseFixPage from "@/pages/tools/KeyboardMouseFix"
+import CameraFixPage from "@/pages/tools/CameraFix"
+import RuntimeInstallerPage from "@/pages/tools/RuntimeInstaller"
+import FontCacheFixPage from "@/pages/tools/FontCacheFix"
+import WindowsHelloFixPage from "@/pages/tools/WindowsHelloFix"
+import DateTimeFormatFixPage from "@/pages/tools/DateTimeFormatFix"
+import WindowsAppsRepairPage from "@/pages/tools/WindowsAppsRepair"
+import FileAssociationGuardianPage from "@/pages/tools/FileAssociationGuardian"
+import ContextMenuCleanerPage from "@/pages/tools/ContextMenuCleaner"
+import SystemTweaksPage from "@/pages/tools/SystemTweaks"
 import ErrorTranslatorPage from "@/pages/ErrorTranslator"
 import ScriptScannerPage from "@/pages/ScriptScanner"
 import NotFoundPage from "@/pages/NotFound"
@@ -74,6 +93,25 @@ export default function App() {
           <Route path="/tools/winget-installer" element={<WingetInstallerPage />} />
           <Route path="/tools/dev-environment" element={<DevEnvironmentPage />} />
           <Route path="/tools/parental-controls" element={<ParentalControlsPage />} />
+          <Route path="/tools/virus-scanner" element={<VirusScannerPage />} />
+          <Route path="/tools/windows-search-fix" element={<WindowsSearchFixPage />} />
+          <Route path="/tools/bluetooth-fix" element={<BluetoothFixPage />} />
+          <Route path="/tools/explorer-fix" element={<ExplorerFixPage />} />
+          <Route path="/tools/clock-sync" element={<ClockSyncPage />} />
+          <Route path="/tools/troubleshooter-runner" element={<TroubleshooterRunnerPage />} />
+          <Route path="/tools/store-fix" element={<StoreFixPage />} />
+          <Route path="/tools/network-stack-reset" element={<NetworkStackResetPage />} />
+          <Route path="/tools/activation-fix" element={<ActivationFixPage />} />
+          <Route path="/tools/keyboard-mouse-fix" element={<KeyboardMouseFixPage />} />
+          <Route path="/tools/camera-fix" element={<CameraFixPage />} />
+          <Route path="/tools/runtime-installer" element={<RuntimeInstallerPage />} />
+          <Route path="/tools/font-cache-fix" element={<FontCacheFixPage />} />
+          <Route path="/tools/windows-hello-fix" element={<WindowsHelloFixPage />} />
+          <Route path="/tools/date-time-format-fix" element={<DateTimeFormatFixPage />} />
+          <Route path="/tools/windows-apps-repair" element={<WindowsAppsRepairPage />} />
+          <Route path="/tools/file-association-guardian" element={<FileAssociationGuardianPage />} />
+          <Route path="/tools/context-menu-cleaner" element={<ContextMenuCleanerPage />} />
+          <Route path="/tools/system-tweaks" element={<SystemTweaksPage />} />
           <Route path="/diagnose" element={<DiagnosePage />} />
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/community/:slug" element={<CommunityFixPage />} />

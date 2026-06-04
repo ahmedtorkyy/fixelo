@@ -12,6 +12,9 @@ export interface ChatMessage {
   undoScript?: string
   fixFilename?: string
   undoFilename?: string
+  isToolSuggestion?: boolean
+  suggestedToolSlug?: string
+  suggestedToolName?: string
 }
 
 export interface Conversation {

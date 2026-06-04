@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router"
-import { ArrowLeft, Send, Download, ShieldOff, Plus, Trash2, MessageSquare, Menu, X, CheckCircle2 } from "lucide-react"
+import { ArrowLeft, Send, Download, ShieldOff, Plus, Trash2, MessageSquare, Menu, X, CheckCircle2, Wrench } from "lucide-react"
 import { Button } from "@/components/common/Button"
 import { VoiceInput } from "@/components/common/VoiceInput"
 import { WarningBanner } from "@/components/common/WarningBanner"
@@ -71,12 +71,42 @@ function ScriptBubble({ message, onDownloadFix, onDownloadUndo }: {
   )
 }
 
-function MessageBubble({ message, onDownloadFix, onDownloadUndo }: {
+function ToolSuggestionBubble({ message, onUseTool }: {
+  message: ChatMessage
+  onUseTool: (slug: string) => void
+}) {
+  return (
+    <div className="max-w-[85%] space-y-3">
+      <div className="bg-surface-900 border border-brand-600/30 rounded-2xl rounded-tl-sm p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Wrench className="w-5 h-5 text-brand-400 shrink-0" />
+          <h3 className="text-base font-semibold text-white">Found a matching tool</h3>
+        </div>
+        <p className="text-surface-300 text-sm leading-relaxed">{message.content}</p>
+        <Button size="md" className="w-full" onClick={() => onUseTool(message.suggestedToolSlug ?? "")}>
+          <Wrench className="w-4 h-4" />
+          Open {message.suggestedToolName ?? "Tool"}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function MessageBubble({ message, onDownloadFix, onDownloadUndo, onUseTool }: {
   message: ChatMessage
   onDownloadFix: (msg: ChatMessage) => void
   onDownloadUndo: (msg: ChatMessage) => void
+  onUseTool: (slug: string) => void
 }) {
   const isUser = message.role === "user"
+
+  if (message.isToolSuggestion && message.suggestedToolSlug) {
+    return (
+      <div className="flex justify-start">
+        <ToolSuggestionBubble message={message} onUseTool={onUseTool} />
+      </div>
+    )
+  }
 
   if (message.isScript && message.fixScript) {
     return (
@@ -140,6 +170,7 @@ export default function AgentPage() {
     handleQuickStart,
     handleDownloadFix,
     handleDownloadUndo,
+    handleUseTool,
     startNewConversation,
     loadConversation,
     handleDeleteConversation,
@@ -243,6 +274,7 @@ export default function AgentPage() {
               message={msg}
               onDownloadFix={handleDownloadFix}
               onDownloadUndo={handleDownloadUndo}
+              onUseTool={(slug) => navigate(`/tools/${slug}`)}
             />
           ))}
 

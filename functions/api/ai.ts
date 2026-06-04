@@ -12,18 +12,14 @@ interface RequestBody {
 }
 
 const OPENROUTER_MODELS = [
-  "google/gemma-4-31b-it:free",
-  "nvidia/nemotron-3-super-120b-a12b:free",
-  "openai/gpt-oss-120b:free",
-  "qwen/qwen3-coder:free",
   "meta-llama/llama-3.3-70b-instruct:free",
+  "google/gemma-4-31b-it:free",
 ]
 
 const GROQ_MODELS = [
   "llama-3.3-70b-versatile",
-  "qwen/qwen3-32b",
   "llama-3.1-8b-instant",
-  "openai/gpt-oss-120b",
+  "gemma2-9b-it",
 ]
 
 async function callOpenRouter(apiKey: string, messages: ChatMessage[]): Promise<string> {
@@ -38,7 +34,7 @@ async function callOpenRouter(apiKey: string, messages: ChatMessage[]): Promise<
     })
     if (!res.ok) {
       const body = await res.text().catch(() => "")
-      if (res.status === 429) continue
+      if (res.status === 429 || res.status === 413) continue
       throw new Error(`OpenRouter ${res.status}: ${body.slice(0, 200)}`)
     }
     const data: any = await res.json()
@@ -60,7 +56,7 @@ async function callGroq(apiKey: string, messages: ChatMessage[]): Promise<string
     })
     if (!res.ok) {
       const body = await res.text().catch(() => "")
-      if (res.status === 429) continue
+      if (res.status === 429 || res.status === 413) continue
       throw new Error(`Groq ${res.status}: ${body.slice(0, 200)}`)
     }
     const data: any = await res.json()

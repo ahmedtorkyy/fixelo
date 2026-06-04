@@ -3,6 +3,7 @@ import { generateContent } from "@/lib/gemini"
 import { buildAgentPrompt, parseAgentResponse } from "@/lib/prompts/agentPrompt"
 import { createConversation, addMessage, saveConversation, deleteConversation, loadConversations, clearAllConversations, saveActiveConversationId, loadActiveConversationId } from "@/lib/agentStorage"
 import { downloadBatFile, generateFixFilename, generateUndoFilename } from "@/lib/batGenerator"
+import { getToolConfig } from "@/lib/toolConfigs"
 import type { Conversation, ChatMessage, AgentStep } from "@/types/agent"
 import { generateMessageId } from "@/lib/agentStorage"
 
@@ -65,24 +66,41 @@ export function useAgent() {
 
       const parsed = parseAgentResponse(raw)
 
-      const assistantMsg: ChatMessage = parsed.type === "script"
-        ? {
-            id: generateMessageId(),
-            role: "assistant",
-            content: parsed.content || "I've generated your fix script!",
-            timestamp: Date.now(),
-            isScript: true,
-            fixScript: parsed.scriptData?.fixScript ?? "",
-            undoScript: parsed.scriptData?.undoScript ?? "",
-            fixFilename: generateFixFilename(text),
-            undoFilename: generateUndoFilename(generateFixFilename(text)),
-          }
-        : {
-            id: generateMessageId(),
-            role: "assistant",
-            content: parsed.content,
-            timestamp: Date.now(),
-          }
+      let assistantMsg: ChatMessage
+
+      if (parsed.type === "tool-suggestion" && parsed.toolSuggestion) {
+        const cfg = getToolConfig(parsed.toolSuggestion.slug)
+        const toolName = cfg?.title ?? parsed.toolSuggestion.slug
+        assistantMsg = {
+          id: generateMessageId(),
+          role: "assistant",
+          content: parsed.content || `I recommend using the **${toolName}** tool for this.`,
+          timestamp: Date.now(),
+          isToolSuggestion: true,
+          suggestedToolSlug: parsed.toolSuggestion.slug,
+          suggestedToolName: toolName,
+        }
+      } else if (parsed.type === "script") {
+        assistantMsg = {
+          id: generateMessageId(),
+          role: "assistant",
+          content: parsed.content || "I've generated your fix script!",
+          timestamp: Date.now(),
+          isScript: true,
+          fixScript: parsed.scriptData?.fixScript ?? "",
+          undoScript: parsed.scriptData?.undoScript ?? "",
+          fixFilename: generateFixFilename(text),
+          undoFilename: generateUndoFilename(generateFixFilename(text)),
+        }
+      } else {
+        const content = parsed.content?.trim()
+        assistantMsg = {
+          id: generateMessageId(),
+          role: "assistant",
+          content: content || "I received your message. How can I help you with your Windows PC?",
+          timestamp: Date.now(),
+        }
+      }
 
       conv = addMessage(conv, assistantMsg)
       setConversation(conv)
@@ -145,6 +163,10 @@ export function useAgent() {
     }
   }, [conversation])
 
+  const handleUseTool = useCallback((slug: string) => {
+    // Navigate to the tool page — handled by the caller via window.location
+  }, [])
+
   const handleClearAll = useCallback(() => {
     clearAllConversations()
     setConversationsList([])
@@ -166,6 +188,7 @@ export function useAgent() {
     handleQuickStart,
     handleDownloadFix,
     handleDownloadUndo,
+    handleUseTool,
     startNewConversation,
     loadConversation,
     handleDeleteConversation,
