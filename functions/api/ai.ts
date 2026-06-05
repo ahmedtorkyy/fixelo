@@ -74,6 +74,7 @@ async function callOpenRouter(apiKey: string, messages: ChatMessage[]): Promise<
 }
 
 async function callGroq(apiKey: string, messages: ChatMessage[]): Promise<string> {
+  const errors: string[] = []
   for (const model of GROQ_MODELS) {
     const controller = new AbortController()
     const t = setTimeout(() => controller.abort(), 15000)
@@ -87,8 +88,10 @@ async function callGroq(apiKey: string, messages: ChatMessage[]): Promise<string
       })
       if (!res.ok) {
         const bodyText = await res.text().catch(() => "")
+        errors.push(`${model}: HTTP ${res.status} — ${bodyText.slice(0, 200)}`)
         if (res.status === 429 || res.status === 413) continue
         if (res.status === 400 && bodyText.includes("response_format")) {
+          // Model doesn't support response_format — retry once without it
           const retryBody = { model, messages, temperature: 0.3, max_tokens: 16384 }
           const retryRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
@@ -97,9 +100,29 @@ async function callGroq(apiKey: string, messages: ChatMessage[]): Promise<string
             signal: controller.signal,
           })
           if (!retryRes.ok) {
+            const retryText = await retryRes.text().catch(() => "")
+            errors.push(`${model} (retry): HTTP ${retryRes.status} — ${retryText.slice(0, 200)}`)
             if (retryRes.status === 429 || retryRes.status === 413) continue
             continue
           }
+          const data: any = await retryRes.json()
+          const content: string = data.choices?.[0]?.message?.content ?? ""
+          if (content?.trim()) return content
+          continue
+        }
+        continue
+      }
+      const data: any = await res.json()
+      const content: string = data.choices?.[0]?.message?.content ?? ""
+      if (content?.trim()) return content
+    } catch (err) {
+      errors.push(`${model}: ${err instanceof Error ? err.message : String(err)}`)
+      continue
+    } finally {
+      clearTimeout(t)
+    }
+  }
+  throw new Error(`All Groq models failed: ${errors.join(" | ")}`)
           const data: any = await retryRes.json()
           const content: string = data.choices?.[0]?.message?.content ?? ""
           if (content?.trim()) return content
