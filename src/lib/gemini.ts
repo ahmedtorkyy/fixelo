@@ -1,7 +1,4 @@
-// All AI calls go through the Cloudflare Pages Function at /api/ai,
-// which holds the provider keys server-side. No keys in the client bundle.
-
-async function callProxy(prompt: string, provider: "openrouter" | "groq" | "gemini"): Promise<string> {
+async function callProxy(prompt: string): Promise<string> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 45000)
 
@@ -10,7 +7,6 @@ async function callProxy(prompt: string, provider: "openrouter" | "groq" | "gemi
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       messages: [{ role: "user", content: prompt }],
-      provider,
     }),
     signal: controller.signal,
   })
@@ -34,17 +30,12 @@ async function callProxy(prompt: string, provider: "openrouter" | "groq" | "gemi
 }
 
 export async function generateContent(prompt: string): Promise<string> {
-  const errors: string[] = []
-  for (const provider of ["groq", "gemini", "openrouter"] as const) {
-    try {
-      const result = await callProxy(prompt, provider)
-      console.log(`[AI] ${provider} responded`)
-      return result
-    } catch (err) {
-      errors.push(`${provider}: ${err instanceof Error ? err.message : String(err)}`)
-    }
+  try {
+    const result = await callProxy(prompt)
+    return result
+  } catch (err) {
+    throw new Error(`Gemini failed: ${err instanceof Error ? err.message : String(err)}`)
   }
-  throw new Error(`All AI providers failed:\n${errors.join("\n")}`)
 }
 
-export const MODEL_ID = "Cloudflare proxy (Groq + Gemini + OpenRouter)"
+export const MODEL_ID = "Gemini 2.5 Flash (via Cloudflare proxy)"
