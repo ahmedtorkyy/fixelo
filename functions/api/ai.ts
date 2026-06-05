@@ -3,7 +3,7 @@ interface ChatMessage {
   content: string
 }
 
-const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"]
+const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"]
 
 async function callGemini(apiKey: string, messages: ChatMessage[]): Promise<string> {
   const errors: string[] = []

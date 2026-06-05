@@ -21,7 +21,7 @@ function loadGoogleKey(): string {
   return ""
 }
 
-const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite"]
+const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"]
 
 async function callGemini(apiKey: string, messages: { role: string; content: string }[]): Promise<string> {
   const errors: string[] = []
