@@ -25,7 +25,7 @@ const GROQ_MODELS = [
   "gemma2-9b-it",
 ]
 
-const GEMINI_MODELS = ["gemini-pro"]
+const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash"]
 
 async function callOpenRouter(apiKey: string, messages: ChatMessage[]): Promise<string> {
   const errors: string[] = []
