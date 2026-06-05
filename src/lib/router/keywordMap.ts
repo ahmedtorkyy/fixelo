@@ -334,8 +334,6 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
   "troubleshoot windows": ["troubleshooter-runner"],
   "repair windows": ["troubleshooter-runner"],
   "fix windows": ["troubleshooter-runner"],
-  "fix my pc": ["troubleshooter-runner"],
-  "fix my computer": ["troubleshooter-runner"],
   "diagnose problem": ["troubleshooter-runner"],
   "diagnose issue": ["troubleshooter-runner"],
   "system troubleshooter": ["troubleshooter-runner"],
@@ -706,7 +704,6 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
   "windows setup": ["new-pc-setup"],
   "out of box": ["new-pc-setup"],
   "new laptop": ["new-pc-setup"],
-  "just got": ["new-pc-setup"],
 
   // === DEV ENVIRONMENT ===
   "code editor": ["dev-environment"],
@@ -955,7 +952,6 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
   "full path": ["system-tweaks"],
   "title bar": ["system-tweaks"],
   "explorer path": ["system-tweaks"],
-  "this pc": ["system-tweaks"],
   "quick access": ["system-tweaks"],
   "animations": ["system-tweaks"],
   "minimize animation": ["system-tweaks"],
@@ -1067,7 +1063,9 @@ function fuzzyMatchKeyword(token: string, keyword: string): boolean {
 
 function containsAllTokens(text: string, phrase: string): boolean {
   const lower = text.toLowerCase()
-  return tokenize(phrase).every((t) => lower.includes(t))
+  const toks = tokenize(phrase)
+  if (toks.length === 0) return false
+  return toks.every((t) => lower.includes(t))
 }
 
 export function suggestTools(problem: string): ToolSuggestion[] {
