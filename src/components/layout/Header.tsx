@@ -1,5 +1,5 @@
 import { NavLink } from "react-router"
-import { Wrench, Menu, X } from "lucide-react"
+import { Menu, X } from "lucide-react"
 import { useState } from "react"
 
 const navItems = [
@@ -18,9 +18,7 @@ export function Header() {
     <header className="border-b border-surface-800 bg-surface-950/80 backdrop-blur-md sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <NavLink to="/" className="flex items-center gap-2.5 group" onClick={() => setMobileOpen(false)}>
-          <div className="w-9 h-9 bg-brand-600 rounded-lg flex items-center justify-center group-hover:bg-brand-500 transition-colors">
-            <Wrench className="w-5 h-5 text-white" />
-          </div>
+          <img src="/header-logo.png" alt="Fixelo" className="w-9 h-9 rounded-lg" />
           <span className="text-xl font-bold text-white tracking-tight">
             Fix<span className="text-brand-400">elo</span>
           </span>
