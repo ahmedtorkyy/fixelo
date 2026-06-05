@@ -5993,4 +5993,212 @@ Write-Log "Restore cannot be undone. Run the tweaks again if needed." "Yellow"
 }`,
     },
   ],
+
+  "software-installer": [
+    {
+      id: "app-name",
+      label: "App Name (search + install)",
+      description: "Type the name of any app to search winget and install it",
+      type: "text",
+      script: `try {
+  $appName = "$APP_NAME_PLACEHOLDER"
+  Write-Log "Searching winget for '$appName'..."
+  $search = winget search --name "$appName" --exact 2>&1 | Out-String
+  if ($search -match "No package found") {
+    Write-Log "No exact match found. Trying broader search..." "Yellow"
+    $search = winget search --name "$appName" 2>&1 | Out-String
+    if ($search -match "No package found") {
+      Write-Log "No package found for '$appName' in the winget catalog." "Red"
+      Write-Log "Try a different name or check https://winget.run" "Yellow"
+      return
+    }
+    Write-Log "Multiple matches found. The first result will be used." "Yellow"
+  }
+  $idMatch = [regex]::Match($search, '(\S+\.[^\s]+)')
+  if ($idMatch.Success) {
+    $id = $idMatch.Groups[1].Value
+    Write-Log "Installing: $id" "Green"
+    winget install --id $id --exact --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+    $check = winget list --id $id --exact 2>&1 | Out-String
+    if ($check -match $id) { Write-Log "Verified: $id installed" "Green" }
+    else { Write-Log "Installation may have failed for $id" "Yellow" }
+  } else {
+    Write-Log "Could not determine package ID from search results." "Red"
+  }
+} catch {
+  Write-Log "Error in App Name (search + install): $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Uninstall the app via Settings > Apps > Installed apps." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "browser",
+      label: "Install Browser (Chrome)",
+      description: "Installs Google Chrome via winget",
+      script: `try {
+  Write-Log "Installing Google Chrome..."
+  winget install --id Google.Chrome --exact --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+  $check = winget list --id Google.Chrome --exact 2>&1 | Out-String
+  if ($check -match "Google.Chrome") { Write-Log "Verified: Google Chrome installed" "Green" }
+  else { Write-Log "Installation may have failed" "Yellow" }
+} catch {
+  Write-Log "Error in Install Browser (Chrome): $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  winget uninstall --id Google.Chrome --silent -ErrorAction SilentlyContinue
+  Write-Log "Google Chrome uninstalled" "Green"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "media",
+      label: "Install Media Player (VLC)",
+      description: "Installs VLC media player via winget",
+      script: `try {
+  Write-Log "Installing VLC media player..."
+  winget install --id VideoLAN.VLC --exact --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+  $check = winget list --id VideoLAN.VLC --exact 2>&1 | Out-String
+  if ($check -match "VideoLAN.VLC") { Write-Log "Verified: VLC installed" "Green" }
+  else { Write-Log "Installation may have failed" "Yellow" }
+} catch {
+  Write-Log "Error in Install Media Player (VLC): $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  winget uninstall --id VideoLAN.VLC --silent -ErrorAction SilentlyContinue
+  Write-Log "VLC uninstalled" "Green"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "essentials",
+      label: "Install Essentials (7-Zip + VLC + Chrome)",
+      description: "Installs a small set of safe, popular free apps via winget",
+      script: `try {
+  $apps = @("7zip.7zip", "VideoLAN.VLC", "Google.Chrome")
+  foreach ($app in $apps) {
+    Write-Log "Installing $app..."
+    winget install --id $app --exact --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+  }
+  Write-Log "Essentials installation completed" "Green"
+} catch {
+  Write-Log "Error in Install Essentials: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  $apps = @("7zip.7zip", "VideoLAN.VLC", "Google.Chrome")
+  foreach ($app in $apps) {
+    winget uninstall --id $app --silent -ErrorAction SilentlyContinue
+  }
+  Write-Log "Essentials uninstalled" "Green"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+
+  "dll-runtime-fix": [
+    {
+      id: "sfc-dism",
+      label: "Run SFC + DISM Repair",
+      description: "Scans and repairs corrupted Windows system files",
+      script: `try {
+  Write-Log "Running System File Checker (SFC)..."
+  $sfc = sfc /scannow 2>&1 | Out-String
+  Write-Log "SFC result:" "Cyan"
+  Write-Log $sfc
+  if ($sfc -match "found corrupt files and repaired them") {
+    Write-Log "SFC repaired corrupted files." "Green"
+  } elseif ($sfc -match "did not find any integrity violations") {
+    Write-Log "SFC found no integrity violations." "Green"
+  } elseif ($sfc -match "found corrupt files but was unable to fix some") {
+    Write-Log "SFC could not repair all files. DISM may help." "Yellow"
+  }
+  Write-Log "Running DISM RestoreHealth..."
+  $dism = DISM /Online /Cleanup-Image /RestoreHealth 2>&1 | Out-String
+  Write-Log "DISM result:" "Cyan"
+  Write-Log $dism
+  if ($dism -match "restoration completed|no component store corruption") {
+    Write-Log "Verified: DISM completed successfully" "Green"
+  } else {
+    Write-Log "DISM completed. Check the report above for details." "Yellow"
+  }
+} catch {
+  Write-Log "Error in Run SFC + DISM Repair: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "SFC and DISM are repair operations and cannot be undone." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "vcredist",
+      label: "Install VC++ Redistributables",
+      description: "Installs Microsoft Visual C++ Redistributables (2015-2022) via winget",
+      script: `try {
+  Write-Log "Installing Visual C++ Redistributable (x64)..."
+  $r1 = winget install Microsoft.VCRedist.2015+.x64 --accept-package-agreements --accept-source-agreements 2>&1 | Out-String
+  if ($r1 -match "success|installed|already installed") { Write-Log "VC++ x64 installed" "Green" }
+  else { Write-Log "VC++ x64 may have failed" "Yellow" }
+  Write-Log "Installing Visual C++ Redistributable (x86)..."
+  $r2 = winget install Microsoft.VCRedist.2015+.x86 --accept-package-agreements --accept-source-agreements 2>&1 | Out-String
+  if ($r2 -match "success|installed|already installed") { Write-Log "VC++ x86 installed" "Green" }
+  else { Write-Log "VC++ x86 may have failed" "Yellow" }
+} catch {
+  Write-Log "Error in Install VC++ Redistributables: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Uninstall VC++ Redistributables via Settings > Apps > Installed apps." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "dotnet",
+      label: "Install .NET Desktop Runtime",
+      description: "Installs .NET Desktop Runtime via winget (fixes 'mscordac' / .NET DLL errors)",
+      script: `try {
+  Write-Log "Installing .NET Desktop Runtime via winget..."
+  $result = winget install Microsoft.DotNet.DesktopRuntime.9 --accept-package-agreements --accept-source-agreements 2>&1 | Out-String
+  if ($result -match "success|installed|already installed") {
+    Write-Log ".NET Desktop Runtime installed" "Green"
+  } else {
+    Write-Log ".NET installation may have failed. Try installing manually from dotnet.microsoft.com." "Yellow"
+  }
+} catch {
+  Write-Log "Error in Install .NET Desktop Runtime: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Uninstall .NET Runtime via Settings > Apps > Installed apps." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "directx",
+      label: "Update DirectX Runtime",
+      description: "Runs the official DirectX End-User Runtime installer from Microsoft",
+      script: `try {
+  Write-Log "Downloading DirectX Runtime installer..."
+  $dxUrl = "https://download.microsoft.com/download/8/4/A/84A35BF1-DAFE-4AE8-82AF-AD2AE20B6B14/directx_Jun2010_redist.exe"
+  $dxPath = "$env:TEMP\\dx_webinstaller.exe"
+  Invoke-WebRequest -Uri $dxUrl -OutFile $dxPath -UseBasicParsing -ErrorAction Stop
+  Write-Log "Running DirectX installer..."
+  Start-Process $dxPath -ArgumentList "/Q /T:$env:TEMP\\dx" -Wait
+  Write-Log "DirectX Runtime installation complete." "Green"
+  Remove-Item $dxPath -Force -ErrorAction SilentlyContinue
+} catch {
+  Write-Log "Error in Update DirectX Runtime: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "DirectX cannot be uninstalled through this tool." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
 }

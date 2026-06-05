@@ -121,7 +121,7 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
   "corrupted": ["corrupted-files-fix"],
   "corrupt": ["corrupted-files-fix"],
   "sfc": ["corrupted-files-fix"],
-  "dism": ["corrupted-files-fix"],
+  "dism": ["dll-runtime-fix", "corrupted-files-fix"],
 
   // Privacy
   "privacy": ["privacy-protector"],
@@ -260,7 +260,7 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
   "blue screen of death": ["blue-screen-recovery"],
   "system crash": ["blue-screen-recovery"],
   "screen size": ["display-resolution-fix"],
-  "system file": ["corrupted-files-fix"],
+  "system file": ["dll-runtime-fix", "corrupted-files-fix"],
   "system files": ["corrupted-files-fix"],
   "file corrupted": ["corrupted-files-fix"],
   "update stuck": ["windows-update-fixer"],
@@ -595,13 +595,13 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
   "machine crash": ["blue-screen-recovery"],
 
   // === CORRUPTED FILES ===
-  "repair files": ["corrupted-files-fix"],
+  "repair files": ["dll-runtime-fix", "corrupted-files-fix"],
   "fix files": ["corrupted-files-fix"],
   "file error": ["corrupted-files-fix"],
   "scan files": ["corrupted-files-fix"],
   "system repair": ["corrupted-files-fix"],
   "windows repair": ["corrupted-files-fix"],
-  "repair system": ["corrupted-files-fix"],
+  "repair system": ["dll-runtime-fix", "corrupted-files-fix"],
   "file damage": ["corrupted-files-fix"],
   "corrupt system": ["corrupted-files-fix"],
   "integrity violation": ["corrupted-files-fix"],
@@ -1066,6 +1066,36 @@ const KEYWORD_TO_SLUG: Record<string, string[]> = {
   "uninstall onedrive": ["onedrive-fix"],
   "onedrive keeps syncing": ["onedrive-fix"],
   "reset onedrive": ["onedrive-fix"],
+
+  // === SOFTWARE INSTALLER ===
+  "get app": ["software-installer", "winget-installer"],
+  "get software": ["software-installer", "winget-installer"],
+  "download chrome": ["software-installer"],
+  "download vlc": ["software-installer"],
+  "download software": ["software-installer", "winget-installer"],
+  "need an app": ["software-installer", "winget-installer"],
+  "install zoom": ["software-installer"],
+  "install chrome": ["software-installer"],
+  "install vlc": ["software-installer"],
+  "install program": ["software-installer", "winget-installer"],
+  "search app": ["software-installer"],
+  "find app": ["software-installer"],
+
+  // === DLL / RUNTIME FIX ===
+  "dll not found": ["dll-runtime-fix", "runtime-installer"],
+  "vcruntime": ["dll-runtime-fix", "runtime-installer"],
+  "msvcp": ["dll-runtime-fix", "runtime-installer"],
+  "msvcr": ["dll-runtime-fix", "runtime-installer"],
+  "d3dx9": ["dll-runtime-fix"],
+  "xinput": ["dll-runtime-fix"],
+  "api-ms-win": ["dll-runtime-fix"],
+  "was not found": ["dll-runtime-fix", "runtime-installer"],
+  "code execution cannot proceed": ["dll-runtime-fix", "runtime-installer"],
+  "runtime error": ["dll-runtime-fix", "runtime-installer"],
+  "sfc scan": ["dll-runtime-fix"],
+  "scannow": ["dll-runtime-fix"],
+  "restore health": ["dll-runtime-fix"],
+  "reinstall runtime": ["dll-runtime-fix", "runtime-installer"],
 }
 
 const STOP_WORDS = new Set([

@@ -822,6 +822,36 @@ export const TOOLS: Record<string, ToolConfig> = {
       { id: "restore-backup", label: "Restore from Backup", description: "Restores context menu to state before the last cleanup (undo)", defaultValue: false },
     ],
   },
+  "software-installer": {
+    slug: "software-installer",
+    title: "Get Software (Safe Installer)",
+    icon: Package,
+    description: "Install apps from the official Windows Package Manager (winget) catalog. No third-party sites.",
+    longDescription:
+      "Safely install apps using Microsoft's official winget catalog. Type any app name to search and install, or pick from popular presets like browsers, media players, and utilities. No third-party download sites — every install comes from Microsoft's verified package source. Undo is supported: uninstall whatever was installed.",
+    category: "Apps",
+    options: [
+      { id: "app-name", label: "App Name (search + install)", description: "Type the name of any app to search winget and install it", type: "text", placeholder: "e.g. VLC, Chrome, Zoom, 7-Zip" },
+      { id: "browser", label: "Install Browser (Chrome)", description: "Installs Google Chrome via winget", defaultValue: false },
+      { id: "media", label: "Install Media Player (VLC)", description: "Installs VLC media player via winget", defaultValue: false },
+      { id: "essentials", label: "Install Essentials (7-Zip + VLC + Chrome)", description: "Installs a small set of safe, popular free apps via winget", defaultValue: false },
+    ],
+  },
+  "dll-runtime-fix": {
+    slug: "dll-runtime-fix",
+    title: "Fix Missing DLL / Runtime",
+    icon: FileWarning,
+    description: "Repair missing DLLs by running SFC/DISM and reinstalling Microsoft runtimes via winget.",
+    longDescription:
+      "Missing DLL errors are fixed by repairing Windows system files and reinstalling official Microsoft runtimes — never by downloading loose .dll files from the internet. This tool runs SFC and DISM to restore corrupted system files, then installs Visual C++ Redistributables, .NET Desktop Runtime, and DirectX from official Microsoft sources via winget.",
+    category: "Fix Tools",
+    options: [
+      { id: "sfc-dism", label: "Run SFC + DISM Repair", description: "Scans and repairs corrupted Windows system files (sfc /scannow + DISM RestoreHealth)", defaultValue: true },
+      { id: "vcredist", label: "Install VC++ Redistributables", description: "Installs Microsoft Visual C++ Redistributables (2015-2022) via winget", defaultValue: true },
+      { id: "dotnet", label: "Install .NET Desktop Runtime", description: "Installs .NET Desktop Runtime via winget (fixes 'mscordac' / .NET DLL errors)", defaultValue: true },
+      { id: "directx", label: "Update DirectX Runtime", description: "Runs the official DirectX End-User Runtime installer from Microsoft", defaultValue: false },
+    ],
+  },
 }
 
 export function getToolConfig(slug: string): ToolConfig | undefined {
