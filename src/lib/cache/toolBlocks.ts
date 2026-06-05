@@ -5405,4 +5405,592 @@ Write-Log "Restore cannot be undone. Run the tweaks again if needed." "Yellow"
 }`,
     },
   ],
+  "free-up-space": [
+    {
+      id: "clean-temp",
+      label: "Clean Temporary Files",
+      description: "Deletes temp files older than 1 day",
+      script: `try {
+  $before = [Math]::Round((Get-PSDrive C).Free / 1GB, 2)
+  Write-Log "Free space before: $before GB"
+  $paths = @("$env:TEMP", "$env:windir\\Temp")
+  $count = 0
+  foreach ($p in $paths) {
+    if (Test-Path $p) {
+      Get-ChildItem $p -Recurse -Force -ErrorAction SilentlyContinue | Where { $_.LastWriteTime -lt (Get-Date).AddDays(-1) } | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+      $count++
+    }
+  }
+  $after = [Math]::Round((Get-PSDrive C).Free / 1GB, 2)
+  $freed = [Math]::Round($after - $before, 2)
+  Write-Log "Verified: freed $freed GB ($before GB -> $after GB)" "Green"
+} catch {
+  Write-Log "Error cleaning temp files: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Temp file cleanup cannot be undone. The freed space is available for use." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "empty-recyclebin",
+      label: "Empty Recycle Bin",
+      description: "Permanently empties the Recycle Bin",
+      script: `try {
+  Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+  Write-Log "Recycle Bin emptied" "Green"
+  Write-Log "Verified: Recycle Bin is empty" "Green"
+} catch {
+  Write-Log "Error emptying Recycle Bin: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Emptied Recycle Bin cannot be restored." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "clean-update-cache",
+      label: "Clean Windows Update Cache",
+      description: "Clears SoftwareDistribution download folder",
+      script: `try {
+  Write-Log "Stopping update services..."
+  Stop-Service wuauserv -Force -ErrorAction SilentlyContinue
+  Stop-Service bits -Force -ErrorAction SilentlyContinue
+  $path = "$env:windir\\SoftwareDistribution\\Download"
+  if (Test-Path $path) {
+    $size = [Math]::Round((Get-ChildItem $path -Recurse -Force -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum / 1MB, 2)
+    Remove-Item "$path\\*" -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log "Cleared $size MB of update cache" "Green"
+  }
+  Start-Service wuauserv -ErrorAction SilentlyContinue
+  Start-Service bits -ErrorAction SilentlyContinue
+  $wu = (Get-Service wuauserv).Status
+  $bi = (Get-Service bits).Status
+  Write-Log "Verified: wuauserv=$wu, bits=$bi" "Green"
+} catch {
+  Write-Log "Error cleaning update cache: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Restarting update services..."
+  Start-Service wuauserv -ErrorAction SilentlyContinue
+  Start-Service bits -ErrorAction SilentlyContinue
+  $wu = (Get-Service wuauserv).Status
+  $bi = (Get-Service bits).Status
+  Write-Log "Verified: wuauserv=$wu, bits=$bi" "Green"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "clean-windows-old",
+      label: "Remove Windows.old",
+      description: "Removes previous Windows installation (permanent, many GB)",
+      script: `try {
+  $path = "C:\\Windows.old"
+  if (Test-Path $path) {
+    $size = [Math]::Round((Get-ChildItem $path -Recurse -Force -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum / 1GB, 2)
+    Write-Log "Windows.old is $size GB. Removing..."
+    takeown /F "$path" /R /D Y 2>&1 | Out-Null
+    icacls "$path" /grant Administrators:F /T /Q 2>&1 | Out-Null
+    Remove-Item "$path" -Recurse -Force -ErrorAction Stop
+    Write-Log "Verified: Windows.old removed (freed $size GB)" "Green"
+  } else {
+    Write-Log "Windows.old not found — nothing to remove." "Green"
+  }
+} catch {
+  Write-Log "Error removing Windows.old: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Windows.old removal is permanent and cannot be undone." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-hibernation",
+      label: "Disable Hibernation",
+      description: "Turns off hibernation and removes hiberfil.sys",
+      script: `try {
+  powercfg /hibernate off
+  Write-Log "Hibernation disabled" "Green"
+  $hiberFile = "$env:SystemDrive\\hiberfil.sys"
+  if (-not (Test-Path $hiberFile)) { Write-Log "Verified: hiberfil.sys removed" "Green" }
+  else { Write-Log "Warning: hiberfil.sys still present" "Yellow" }
+} catch {
+  Write-Log "Error disabling hibernation: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  powercfg /hibernate on
+  Write-Log "Hibernation re-enabled" "Green"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "clean-delivery-optimization",
+      label: "Clean Delivery Optimization Cache",
+      description: "Clears Delivery Optimization peer cache",
+      script: `try {
+  $doPath = "$env:windir\\SoftwareDistribution\\DeliveryOptimization"
+  if (Test-Path $doPath) {
+    $size = [Math]::Round((Get-ChildItem $doPath -Recurse -Force -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum / 1MB, 2)
+    Remove-Item "$doPath\\*" -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log "Cleared $size MB of Delivery Optimization cache" "Green"
+  } else {
+    Write-Log "Delivery Optimization cache not found" "Green"
+  }
+} catch {
+  Write-Log "Error cleaning DO cache: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Delivery Optimization cache cleanup cannot be undone." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "restore-point-manager": [
+    {
+      id: "enable-protection",
+      label: "Enable System Protection on C:",
+      description: "Turns on System Restore for the C: drive",
+      script: `try {
+  Enable-ComputerRestore -Drive "C:\\"
+  $rp = Get-ComputerRestorePoint -ErrorAction SilentlyContinue
+  Write-Log "System protection enabled on C:" "Green"
+  Write-Log "Verified: protection is on" "Green"
+} catch {
+  Write-Log "Error enabling protection: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "System protection remains enabled — no undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "create-point",
+      label: "Create a Restore Point Now",
+      description: "Forces creation of a restore point",
+      script: `try {
+  # Temporarily disable the 24h throttle to force creation
+  $regPath = "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SystemRestore"
+  $val = Get-ItemProperty -Path $regPath -Name SystemRestorePointCreationFrequency -ErrorAction SilentlyContinue
+  $origVal = if ($val) { $val.SystemRestorePointCreationFrequency } else { $null }
+  Set-ItemProperty -Path $regPath -Name SystemRestorePointCreationFrequency -Value 0 -ErrorAction SilentlyContinue
+  Checkpoint-Computer -Description "Fixelo Restore Point" -RestorePointType MODIFY_SETTINGS -ErrorAction Stop
+  if ($origVal -ne $null) { Set-ItemProperty -Path $regPath -Name SystemRestorePointCreationFrequency -Value $origVal }
+  else { Remove-ItemProperty -Path $regPath -Name SystemRestorePointCreationFrequency -ErrorAction SilentlyContinue }
+  $points = Get-ComputerRestorePoint -ErrorAction SilentlyContinue | Where { $_.Description -eq "Fixelo Restore Point" }
+  if ($points) { Write-Log "Verified: restore point created successfully" "Green" }
+  else { Write-Log "Warning: restore point may not have been created" "Yellow" }
+} catch {
+  Write-Log "Error creating restore point: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Restore point is harmless — no undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "list-points",
+      label: "List Existing Restore Points",
+      description: "Logs all available restore points (read-only)",
+      script: `try {
+  $points = Get-ComputerRestorePoint -ErrorAction SilentlyContinue
+  if ($points) {
+    Write-Log "Restore Points:" "Green"
+    foreach ($p in $points) {
+      $desc = $p.Description
+      $seq = $p.SequenceNumber
+      $date = (Get-Date -Year $p.CreationTime.Year -Month $p.CreationTime.Month -Day $p.CreationTime.Day -Hour $p.CreationTime.Hour -Minute $p.CreationTime.Minute -Second $p.CreationTime.Second)
+      Write-Log "  #$seq: $desc ($date)"
+    }
+  } else {
+    Write-Log "No restore points found." "Yellow"
+  }
+} catch {
+  Write-Log "Error listing restore points: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "List operation is read-only — no undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "open-restore",
+      label: "Open System Restore Wizard",
+      description: "Opens rstrui.exe for manual rollback",
+      script: `try {
+  Start-Process rstrui.exe
+  Write-Log "System Restore wizard opened. Select a restore point to roll back." "Green"
+} catch {
+  Write-Log "Error opening restore wizard: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Wizard is manual — no undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "microphone-fix": [
+    {
+      id: "restart-audio",
+      label: "Restart Audio Services",
+      description: "Restarts Audiosrv and AudioEndpointBuilder",
+      script: `try {
+  Write-Log "Restarting audio services..."
+  Restart-Service Audiosrv -Force -ErrorAction Stop
+  Restart-Service AudioEndpointBuilder -Force -ErrorAction Stop
+  $as = (Get-Service Audiosrv).Status
+  $ae = (Get-Service AudioEndpointBuilder).Status
+  Write-Log "Verified: Audiosrv=$as, AudioEndpointBuilder=$ae" "Green"
+} catch {
+  Write-Log "Error restarting audio services: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Audio services restart is transient — no undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "enable-mic-access",
+      label: "Enable Microphone Privacy Access",
+      description: "Allows microphone access in privacy settings",
+      script: `try {
+  $path = "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone"
+  $lmPath = "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone"
+  $origUser = $null
+  $origLm = $null
+  if (Test-Path $path) {
+    $val = Get-ItemProperty -Path $path -Name Value -ErrorAction SilentlyContinue
+    $origUser = if ($val) { $val.Value } else { $null }
+    Set-ItemProperty -Path $path -Name Value -Value "Allow" -ErrorAction SilentlyContinue
+  }
+  if (Test-Path $lmPath) {
+    $val = Get-ItemProperty -Path $lmPath -Name Value -ErrorAction SilentlyContinue
+    $origLm = if ($val) { $val.Value } else { $null }
+    Set-ItemProperty -Path $lmPath -Name Value -Value "Allow" -ErrorAction SilentlyContinue
+  }
+  $check = Get-ItemProperty -Path $path -Name Value -ErrorAction SilentlyContinue
+  if ($check.Value -eq "Allow") { Write-Log "Verified: mic access is allowed" "Green" }
+  else { Write-Log "Warning: mic access may still be blocked" "Yellow" }
+} catch {
+  Write-Log "Error enabling mic access: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Restoring original mic privacy values..." "Yellow"
+  $path = "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone"
+  $lmPath = "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone"
+  Set-ItemProperty -Path $path -Name Value -Value "Deny" -ErrorAction SilentlyContinue
+  Set-ItemProperty -Path $lmPath -Name Value -Value "Deny" -ErrorAction SilentlyContinue
+  Write-Log "Mic access denied (original state restored)" "Green"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "enable-mic-device",
+      label: "Re-enable Microphone Device",
+      description: "Finds and re-enables disabled microphone devices",
+      script: `try {
+  $mics = Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue | Where { $_.FriendlyName -match "microphone|mic|audio|input" -or $_.Class -eq "AudioEndpoint" }
+  $disabled = $mics | Where { $_.Status -eq "Error" -or $_.Status -eq "Unknown" }
+  if (-not $disabled) {
+    $allAudio = Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue
+    $disabled = $allAudio | Where { $_.Status -eq "Error" -or $_.Status -eq "Unknown" }
+  }
+  if ($disabled) {
+    foreach ($d in $disabled) {
+      Write-Log "Enabling: $($d.FriendlyName) ($($d.InstanceId))"
+      Enable-PnpDevice -InstanceId $d.InstanceId -Confirm:$false -ErrorAction SilentlyContinue
+      $check = Get-PnpDevice -InstanceId $d.InstanceId -ErrorAction SilentlyContinue
+      if ($check.Status -eq "OK") { Write-Log "Verified: $($d.FriendlyName) is now enabled" "Green" }
+      else { Write-Log "Warning: $($d.FriendlyName) could not be enabled" "Yellow" }
+    }
+  } else {
+    Write-Log "No disabled microphone devices found" "Green"
+  }
+} catch {
+  Write-Log "Error enabling mic device: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Re-disabling microphone devices..." "Yellow"
+  $mics = Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue | Where { $_.FriendlyName -match "microphone|mic|audio|input" -or $_.Class -eq "AudioEndpoint" }
+  $enabled = $mics | Where { $_.Status -eq "OK" }
+  foreach ($e in $enabled) {
+    Disable-PnpDevice -InstanceId $e.InstanceId -Confirm:$false -ErrorAction SilentlyContinue
+    Write-Log "Disabled: $($e.FriendlyName)"
+  }
+  Write-Log "Microphone devices disabled (original state restored)" "Green"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "open-recording-settings",
+      label: "Open Recording Settings",
+      description: "Opens the Sound recording tab for manual mic selection",
+      script: `try {
+  Start-Process rundll32.exe -ArgumentList "shell32.dll,Control_RunDLL mmsys.cpl,,1"
+  Write-Log "Recording settings opened. Select your default microphone and ensure it is not muted." "Green"
+} catch {
+  Write-Log "Error opening recording settings: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Manual step — no undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "power-sleep-fix": [
+    {
+      id: "diagnose-sleep",
+      label: "Diagnose Sleep Issues",
+      description: "Logs what's blocking sleep and last wake source",
+      script: `try {
+  Write-Log "=== Sleep Diagnosis ===" "Cyan"
+  Write-Log "Power scheme: $(powercfg /getactivescheme | Select-String 'Power Scheme')" "White"
+  Write-Log "--- Active Requests (blocking sleep) ---"
+  powercfg /requests 2>&1 | ForEach { Write-Log $_ }
+  Write-Log "--- Last Wake Source ---"
+  powercfg /lastwake 2>&1 | ForEach { Write-Log $_ }
+  Write-Log "--- Wake Timers ---"
+  powercfg /waketimers 2>&1 | ForEach { Write-Log $_ }
+  Write-Log "=== Diagnosis complete ===" "Cyan"
+} catch {
+  Write-Log "Error diagnosing sleep: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Diagnosis is read-only — no undo needed." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "stop-random-wake",
+      label: "Stop Random Wake",
+      description: "Disables wake timers and wake-armed devices",
+      script: `try {
+  # Save original RTCWAKE value
+  $origRtc = powercfg /getacvalueindex SCHEME_CURRENT SUB_SLEEP RTCWAKE 2>&1
+  $origRtcDc = powercfg /getdcvalueindex SCHEME_CURRENT SUB_SLEEP RTCWAKE 2>&1
+  # Disable wake timers
+  powercfg /setacvalueindex SCHEME_CURRENT SUB_SLEEP RTCWAKE 0
+  powercfg /setdcvalueindex SCHEME_CURRENT SUB_SLEEP RTCWAKE 0
+  powercfg /setactive SCHEME_CURRENT
+  # Get and disable wake-armed devices
+  $wakeDevices = powercfg -devicequery wake_armed 2>&1
+  $deviceList = @()
+  foreach ($line in $wakeDevices) {
+    $name = $line.Trim()
+    if ($name -and $name -notmatch "^(NONE|none|None)$" -and $name -notmatch "error") {
+      powercfg -devicedisablewake "$name" 2>&1 | Out-Null
+      $deviceList += $name
+      Write-Log "Disabled wake for: $name"
+    }
+  }
+  $checkWake = powercfg /getacvalueindex SCHEME_CURRENT SUB_SLEEP RTCWAKE 2>&1
+  Write-Log "Verified: RTCWAKE is $checkWake, $($deviceList.Count) devices unarmed" "Green"
+} catch {
+  Write-Log "Error disabling wake: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Restoring wake timers and devices..." "Yellow"
+  # Restore RTCWAKE
+  $ac = powercfg /getacvalueindex SCHEME_CURRENT SUB_SLEEP RTCWAKE 2>&1
+  if ($ac -ne $null) {
+    powercfg /setacvalueindex SCHEME_CURRENT SUB_SLEEP RTCWAKE 1
+    powercfg /setdcvalueindex SCHEME_CURRENT SUB_SLEEP RTCWAKE 1
+    powercfg /setactive SCHEME_CURRENT
+    Write-Log "Wake timers re-enabled" "Green"
+  }
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-fast-startup",
+      label: "Disable Fast Startup",
+      description: "Disables hybrid shutdown (fixes shutdown/boot issues)",
+      script: `try {
+  $path = "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power"
+  $orig = Get-ItemProperty -Path $path -Name HiberbootEnabled -ErrorAction SilentlyContinue
+  $origVal = if ($orig) { $orig.HiberbootEnabled } else { $null }
+  Set-ItemProperty -Path $path -Name HiberbootEnabled -Value 0 -Type DWord -Force
+  $check = (Get-ItemProperty -Path $path -Name HiberbootEnabled -ErrorAction SilentlyContinue).HiberbootEnabled
+  if ($check -eq 0) { Write-Log "Verified: Fast Startup disabled" "Green" }
+  else { Write-Log "Warning: Fast Startup may still be on" "Yellow" }
+} catch {
+  Write-Log "Error disabling fast startup: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  $path = "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power"
+  Set-ItemProperty -Path $path -Name HiberbootEnabled -Value 1 -Type DWord -Force
+  Write-Log "Fast Startup re-enabled" "Green"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "restore-sleep-defaults",
+      label: "Restore Sleep Defaults",
+      description: "Resets sleep timeouts to 30min AC / 15min DC",
+      script: `try {
+  Write-Log "Resetting sleep timeouts to Windows defaults..."
+  $defaults = @(
+    @{ setting = "standby-timeout-ac"; value = 30 },
+    @{ setting = "standby-timeout-dc"; value = 15 },
+    @{ setting = "hibernate-timeout-ac"; value = 0 },
+    @{ setting = "hibernate-timeout-dc"; value = 0 }
+  )
+  foreach ($d in $defaults) {
+    powercfg -x $d.setting $d.value 2>&1 | Out-Null
+    Write-Log "  $($d.setting) = $($d.value)"
+  }
+  $check = powercfg /getacvalueindex SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 2>&1
+  Write-Log "Verified: standby timeout AC = $check" "Green"
+} catch {
+  Write-Log "Error restoring sleep defaults: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  Write-Log "Sleep defaults restored. Run tool again to recapture." "Yellow"
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
+  "onedrive-fix": [
+    {
+      id: "pause-sync",
+      label: "Pause OneDrive Sync",
+      description: "Stops the OneDrive sync process",
+      script: `try {
+  $proc = Get-Process -Name OneDrive -ErrorAction SilentlyContinue
+  if ($proc) {
+    Stop-Process -Name OneDrive -Force -ErrorAction Stop
+    Write-Log "OneDrive sync paused" "Green"
+  } else {
+    Write-Log "OneDrive is not running" "Green"
+  }
+  $check = Get-Process -Name OneDrive -ErrorAction SilentlyContinue
+  if (-not $check) { Write-Log "Verified: OneDrive process stopped" "Green" }
+} catch {
+  Write-Log "Error pausing OneDrive: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  $path = "$env:LOCALAPPDATA\\Microsoft\\OneDrive\\OneDrive.exe"
+  if (Test-Path $path) {
+    Start-Process $path
+    Write-Log "OneDrive relaunched" "Green"
+  } else {
+    $sysPath = "$env:ProgramFiles\\Microsoft OneDrive\\OneDrive.exe"
+    if (Test-Path $sysPath) { Start-Process $sysPath; Write-Log "OneDrive relaunched" "Green" }
+    else { Write-Log "OneDrive executable not found" "Yellow" }
+  }
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "disable-startup",
+      label: "Disable OneDrive from Startup",
+      description: "Prevents OneDrive from launching at boot",
+      script: `try {
+  $runPath = "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+  $od = Get-ItemProperty -Path $runPath -Name OneDrive -ErrorAction SilentlyContinue
+  if ($od) {
+    $origPath = $od.OneDrive
+    Remove-ItemProperty -Path $runPath -Name OneDrive -ErrorAction Stop
+    Write-Log "OneDrive removed from startup" "Green"
+  } else {
+    Write-Log "OneDrive not in startup" "Green"
+  }
+  $check = Get-ItemProperty -Path $runPath -Name OneDrive -ErrorAction SilentlyContinue
+  if (-not $check) { Write-Log "Verified: OneDrive startup entry removed" "Green" }
+} catch {
+  Write-Log "Error disabling OneDrive startup: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  $runPath = "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+  $odPath = "$env:LOCALAPPDATA\\Microsoft\\OneDrive\\OneDrive.exe"
+  if (Test-Path $odPath) {
+    Set-ItemProperty -Path $runPath -Name OneDrive -Value "$odPath" -ErrorAction Stop
+    Write-Log "OneDrive startup restored" "Green"
+  }
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "reset-onedrive",
+      label: "Reset OneDrive",
+      description: "Resets the OneDrive sync engine",
+      script: `try {
+  $odPath = "$env:LOCALAPPDATA\\Microsoft\\OneDrive\\OneDrive.exe"
+  $sysPath = "$env:ProgramFiles\\Microsoft OneDrive\\OneDrive.exe"
+  $exe = if (Test-Path $odPath) { $odPath } elseif (Test-Path $sysPath) { $sysPath } else { $null }
+  if ($exe) {
+    Start-Process -FilePath $exe -ArgumentList "/reset" -Wait
+    Write-Log "OneDrive reset complete" "Green"
+  } else {
+    Write-Log "OneDrive executable not found" "Yellow"
+  }
+} catch {
+  Write-Log "Error resetting OneDrive: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  $odPath = "$env:LOCALAPPDATA\\Microsoft\\OneDrive\\OneDrive.exe"
+  $sysPath = "$env:ProgramFiles\\Microsoft OneDrive\\OneDrive.exe"
+  $exe = if (Test-Path $odPath) { $odPath } elseif (Test-Path $sysPath) { $sysPath } else { $null }
+  if ($exe) {
+    Start-Process $exe
+    Write-Log "OneDrive relaunched" "Green"
+  }
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+    {
+      id: "uninstall-onedrive",
+      label: "Uninstall OneDrive",
+      description: "Removes the OneDrive app (cloud files stay safe)",
+      script: `try {
+  $sysWOW = "$env:SystemRoot\\SysWOW64\\OneDriveSetup.exe"
+  $sysNat = "$env:SystemRoot\\System32\\OneDriveSetup.exe"
+  $exe = if (Test-Path $sysWOW) { $sysWOW } elseif (Test-Path $sysNat) { $sysNat } else { $null }
+  if ($exe) {
+    Write-Log "Uninstalling OneDrive..." "Yellow"
+    Start-Process -FilePath $exe -ArgumentList "/uninstall" -Wait
+    Write-Log "OneDrive uninstalled" "Green"
+  } else {
+    Write-Log "OneDrive setup executable not found" "Yellow"
+  }
+  $proc = Get-Process -Name OneDrive -ErrorAction SilentlyContinue
+  if (-not $proc) { Write-Log "Verified: OneDrive is no longer running" "Green" }
+} catch {
+  Write-Log "Error uninstalling OneDrive: $($_.Exception.Message)" "Red"
+}`,
+      undoScript: `try {
+  $sysWOW = "$env:SystemRoot\\SysWOW64\\OneDriveSetup.exe"
+  $sysNat = "$env:SystemRoot\\System32\\OneDriveSetup.exe"
+  $exe = if (Test-Path $sysWOW) { $sysWOW } elseif (Test-Path $sysNat) { $sysNat } else { $null }
+  if ($exe) {
+    Start-Process -FilePath $exe -ArgumentList "/install" -Wait
+    Write-Log "OneDrive reinstalled" "Green"
+  } else {
+    Write-Log "OneDrive setup executable not found" "Yellow"
+  }
+} catch {
+  Write-Log "Error: $($_.Exception.Message)" "Red"
+}`,
+    },
+  ],
 }

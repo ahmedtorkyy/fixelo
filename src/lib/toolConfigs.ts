@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react"
-import { Gamepad2, Shield, ShieldCheck, Monitor, Rocket, Wifi, CalendarCheck, WifiOff, RefreshCw, Gauge, AlertTriangle, Volume2, MonitorSmartphone, FileWarning, HardDrive, Printer, Usb, Battery, Zap, Moon, LayoutDashboard, Timer, FolderSync, Cpu, Package, Code, Lock, Search, Bluetooth, FolderSearch, Clock, Wrench, Store, Keyboard, Camera, List, Router, KeyRound, Binary, Type, Fingerprint, CalendarDays, AppWindow, FileType, SlidersHorizontal } from "lucide-react"
+import { Gamepad2, Shield, ShieldCheck, Monitor, Rocket, Wifi, CalendarCheck, WifiOff, RefreshCw, Gauge, AlertTriangle, Volume2, MonitorSmartphone, FileWarning, HardDrive, Printer, Usb, Battery, Zap, Moon, LayoutDashboard, Timer, FolderSync, Cpu, Package, Code, Lock, Search, Bluetooth, FolderSearch, Clock, Wrench, Store, Keyboard, Camera, List, Router, KeyRound, Binary, Type, Fingerprint, CalendarDays, AppWindow, FileType, SlidersHorizontal, History, Mic, Power, Cloud } from "lucide-react"
 
 export interface ToolOption {
   id: string
@@ -731,6 +731,83 @@ export const TOOLS: Record<string, ToolConfig> = {
       { id: "restore-defaults", label: "★ Restore All Defaults", description: "Undoes all tweaks applied by this tool and restores original registry values from backup", defaultValue: false },
     ],
   },
+  "free-up-space": {
+    slug: "free-up-space",
+    title: "Free Up Disk Space",
+    icon: HardDrive,
+    description: "Clean temp files, empty Recycle Bin, remove Windows.old, and disable hibernation to reclaim GBs of space.",
+    longDescription:
+      "Running low on disk space is the most common Windows complaint. This tool safely removes temporary files, Windows Update cache, Delivery Optimization files, and optionally clears Windows.old (previous installation) and disables hibernation. Only junk is deleted — never your personal files.",
+    category: "Performance",
+    options: [
+      { id: "clean-temp", label: "Clean Temporary Files", description: "Deletes files in user TEMP and Windows Temp older than 1 day", defaultValue: true },
+      { id: "empty-recyclebin", label: "Empty Recycle Bin", description: "Permanently empties the Recycle Bin — cannot be undone", defaultValue: true },
+      { id: "clean-update-cache", label: "Clean Windows Update Cache", description: "Clears the SoftwareDistribution download folder to free GBs", defaultValue: true },
+      { id: "clean-windows-old", label: "Remove Windows.old", description: "Removes previous Windows installation folder (safe after upgrade). Cannot be undone.", defaultValue: false },
+      { id: "disable-hibernation", label: "Disable Hibernation", description: "Turns off hibernation and removes hiberfil.sys (multi-GB file)", defaultValue: false },
+      { id: "clean-delivery-optimization", label: "Clean Delivery Optimization Cache", description: "Clears Windows Update Delivery Optimization peer cache", defaultValue: true },
+    ],
+  },
+  "restore-point-manager": {
+    slug: "restore-point-manager",
+    title: "Restore Point Manager",
+    icon: History,
+    description: "Create, list, and open System Restore points — your safety net before making changes.",
+    longDescription:
+      "System Restore points let you roll back system files and registry to a previous state. This tool creates restore points, lists existing ones, enables protection on drive C, and opens the restore wizard so you can roll back safely.",
+    category: "Backup",
+    options: [
+      { id: "enable-protection", label: "Enable System Protection on C:", description: "Turns on System Restore for the C: drive", defaultValue: true },
+      { id: "create-point", label: "Create a Restore Point Now", description: "Creates a restore point named 'Fixelo Restore Point' (forces creation by temporarily disabling the 24h throttle)", defaultValue: true },
+      { id: "list-points", label: "List Existing Restore Points", description: "Read-only — logs all available restore points", defaultValue: false },
+      { id: "open-restore", label: "Open System Restore Wizard", description: "Opens rstrui.exe so you can pick a restore point and roll back", defaultValue: false },
+    ],
+  },
+  "microphone-fix": {
+    slug: "microphone-fix",
+    title: "Microphone Fix",
+    icon: Mic,
+    description: "Fix mic issues: restart audio services, enable privacy permissions, re-enable the mic device.",
+    longDescription:
+      "Microphone not working in Teams, Zoom, or Discord? This tool restarts audio services, ensures mic privacy access is allowed, and re-enables the mic device. Use the 'Open Recording Settings' option to pick your default microphone.",
+    category: "Hardware",
+    options: [
+      { id: "restart-audio", label: "Restart Audio Services", description: "Restarts Audiosrv and AudioEndpointBuilder (fixes many mic issues)", defaultValue: true },
+      { id: "enable-mic-access", label: "Enable Microphone Privacy Access", description: "Allows microphone access in Windows privacy settings", defaultValue: true },
+      { id: "enable-mic-device", label: "Re-enable Microphone Device", description: "Finds and re-enables disabled microphone devices", defaultValue: true },
+      { id: "open-recording-settings", label: "Open Recording Settings", description: "Opens the Sound recording tab so you can pick your default mic", defaultValue: false },
+    ],
+  },
+  "power-sleep-fix": {
+    slug: "power-sleep-fix",
+    title: "Power & Sleep Fix",
+    icon: Power,
+    description: "Fix sleep/wake issues: diagnose wake sources, disable wake timers, disable fast startup.",
+    longDescription:
+      "PC won't sleep, keeps waking randomly, or won't shut down? This tool diagnoses what's blocking sleep, disables wake timers, disables fast startup (a common culprit), and can restore sane sleep defaults.",
+    category: "Performance",
+    options: [
+      { id: "diagnose-sleep", label: "Diagnose Sleep Issues", description: "Logs what's blocking sleep and what last woke the PC (read-only)", defaultValue: true },
+      { id: "stop-random-wake", label: "Stop Random Wake", description: "Disables wake timers and wake-armed devices. Fully reversible.", defaultValue: true },
+      { id: "disable-fast-startup", label: "Disable Fast Startup", description: "Disables hybrid shutdown (fixes 'won't shut down' and boot quirks)", defaultValue: true },
+      { id: "restore-sleep-defaults", label: "Restore Sleep Defaults", description: "Resets sleep timeouts to sane defaults (30min AC, 15min DC)", defaultValue: false },
+    ],
+  },
+  "onedrive-fix": {
+    slug: "onedrive-fix",
+    title: "OneDrive Fix",
+    icon: Cloud,
+    description: "Pause OneDrive sync, disable startup, reset or unlink OneDrive.",
+    longDescription:
+      "OneDrive won't stop syncing, won't start, or you just want it off your PC? This tool pauses sync, removes OneDrive from startup, resets the sync engine, or can uninstall OneDrive entirely. Your cloud files are never deleted.",
+    category: "Apps",
+    options: [
+      { id: "pause-sync", label: "Pause OneDrive Sync", description: "Stops the OneDrive sync process immediately", defaultValue: true },
+      { id: "disable-startup", label: "Disable OneDrive from Startup", description: "Prevents OneDrive from launching automatically at boot", defaultValue: true },
+      { id: "reset-onedrive", label: "Reset OneDrive", description: "Resets the OneDrive sync engine (useful for stuck sync)", defaultValue: false },
+      { id: "uninstall-onedrive", label: "Uninstall OneDrive", description: "Removes the OneDrive app (cloud files stay safe online). Reinstall option available.", defaultValue: false },
+    ],
+  },
   "context-menu-cleaner": {
     slug: "context-menu-cleaner",
     title: "Right Click Menu Cleaner",
@@ -762,4 +839,7 @@ export const TOOL_CATEGORIES = [
   "Customization",
   "Automation",
   "Setup & Installation",
+  "Hardware",
+  "Backup",
+  "Apps",
 ]

@@ -89,7 +89,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="space-y-3">
-            {suggestions.map((s) => (
+            {suggestions.map((s, i) => (
               <button
                 key={s.slug}
                 onClick={() => navigate(`/tools/${s.slug}`)}
@@ -100,9 +100,11 @@ export default function HomePage() {
                     <h3 className="text-lg font-semibold text-white">{s.title}</h3>
                     <p className="text-sm text-surface-400 mt-1">{s.description}</p>
                   </div>
-                  <span className="shrink-0 text-xs text-surface-500 bg-surface-800 rounded-full px-2.5 py-1 self-start">
-                    {Math.round(s.confidence * 100)}% match
-                  </span>
+                  {i === 0 && (
+                    <span className="shrink-0 text-xs text-brand-600 bg-brand-600/10 rounded-full px-2.5 py-1 self-start font-medium">
+                      Best match
+                    </span>
+                  )}
                 </div>
               </button>
             ))}
