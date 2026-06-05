@@ -1,7 +1,7 @@
 // All AI calls go through the Cloudflare Pages Function at /api/ai,
 // which holds the provider keys server-side. No keys in the client bundle.
 
-async function callProxy(prompt: string, provider: "openrouter" | "groq"): Promise<string> {
+async function callProxy(prompt: string, provider: "openrouter" | "groq" | "gemini"): Promise<string> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 45000)
 
@@ -35,7 +35,7 @@ async function callProxy(prompt: string, provider: "openrouter" | "groq"): Promi
 
 export async function generateContent(prompt: string): Promise<string> {
   const errors: string[] = []
-  for (const provider of ["groq", "openrouter"] as const) {
+  for (const provider of ["groq", "gemini", "openrouter"] as const) {
     try {
       const result = await callProxy(prompt, provider)
       console.log(`[AI] ${provider} responded`)
@@ -47,4 +47,4 @@ export async function generateContent(prompt: string): Promise<string> {
   throw new Error(`All AI providers failed:\n${errors.join("\n")}`)
 }
 
-export const MODEL_ID = "Cloudflare proxy (OpenRouter + Groq)"
+export const MODEL_ID = "Cloudflare proxy (Groq + Gemini + OpenRouter)"

@@ -5,9 +5,9 @@ import tailwindcss from "@tailwindcss/vite"
 import { defineConfig, type Plugin } from "vite"
 
 // Load .env manually for the AI proxy (Vite doesn't expose non-VITE_ vars to process.env)
-function loadApiKeys(): { openrouter: string; groq: string } {
+function loadApiKeys(): { openrouter: string; groq: string; google: string } {
   const envPath = path.resolve(__dirname, ".env")
-  const keys = { openrouter: "", groq: "" }
+  const keys = { openrouter: "", groq: "", google: "" }
   try {
     const content = fs.readFileSync(envPath, "utf-8")
     for (const line of content.split("\n")) {
@@ -19,6 +19,7 @@ function loadApiKeys(): { openrouter: string; groq: string } {
       const v = trimmed.slice(eq + 1).trim()
       if (k === "OPENROUTER_API_KEY") keys.openrouter = v
       if (k === "GROQ_API_KEY") keys.groq = v
+      if (k === "GOOGLE_API_KEY") keys.google = v
     }
   } catch { /* .env may not exist */ }
   return keys
@@ -46,7 +47,7 @@ const aiProxyPlugin: Plugin = {
         return
       }
 
-      const provider = parsed.provider ?? "openrouter"
+      const provider = parsed.provider ?? "groq"
       const messages = parsed.messages ?? []
 
       try {
@@ -55,6 +56,9 @@ const aiProxyPlugin: Plugin = {
         if (provider === "groq") {
           if (!keys.groq) throw new Error("GROQ_API_KEY not set in .env")
           content = await callGroq(keys.groq, messages)
+        } else if (provider === "gemini") {
+          if (!keys.google) throw new Error("GOOGLE_API_KEY not set in .env")
+          content = await callGemini(keys.google, messages)
         } else {
           if (!keys.openrouter) throw new Error("OPENROUTER_API_KEY not set in .env")
           content = await callOpenRouter(keys.openrouter, messages)
@@ -70,17 +74,27 @@ const aiProxyPlugin: Plugin = {
   },
 }
 
+const OPENROUTER_MODELS = [
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "qwen/qwen3-coder:free",
+  "meta-llama/llama-4-scout:free",
+  "google/gemma-4-31b-it:free",
+]
+
+const GROQ_MODELS = [
+  "llama-3.3-70b-versatile",
+  "meta-llama/llama-4-scout-17b-16e-instruct",
+  "llama-3.1-8b-instant",
+  "gemma2-9b-it",
+]
+
+const GEMINI_MODELS = ["gemini-pro"]
+
 async function callOpenRouter(
   apiKey: string,
   messages: { role: string; content: string }[]
 ): Promise<string> {
-  const models = [
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "qwen/qwen3-coder:free",
-    "meta-llama/llama-4-scout:free",
-    "google/gemma-4-31b-it:free",
-  ]
-  for (const model of models) {
+  for (const model of OPENROUTER_MODELS) {
     const controller = new AbortController()
     const t = setTimeout(() => controller.abort(), 15000)
     try {
@@ -95,7 +109,6 @@ async function callOpenRouter(
         const bodyText = await res.text().catch(() => "")
         if (res.status === 429 || res.status === 413) continue
         if (res.status === 400 && bodyText.includes("response_format")) {
-          // Model doesn't support json_object mode — retry once without it
           const retryBody = { model, messages, temperature: 0.3, max_tokens: 16384 }
           const retryRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
@@ -130,13 +143,7 @@ async function callGroq(
   apiKey: string,
   messages: { role: string; content: string }[]
 ): Promise<string> {
-  const models = [
-    "llama-3.3-70b-versatile",
-    "meta-llama/llama-4-scout-17b-16e-instruct",
-    "llama-3.1-8b-instant",
-    "gemma2-9b-it",
-  ]
-  for (const model of models) {
+  for (const model of GROQ_MODELS) {
     const controller = new AbortController()
     const t = setTimeout(() => controller.abort(), 15000)
     try {
@@ -151,7 +158,6 @@ async function callGroq(
         const bodyText = await res.text().catch(() => "")
         if (res.status === 429 || res.status === 413) continue
         if (res.status === 400 && bodyText.includes("response_format")) {
-          // Model doesn't support json_object mode — retry once without it
           const retryBody = { model, messages, temperature: 0.3, max_tokens: 16384 }
           const retryRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
@@ -180,6 +186,61 @@ async function callGroq(
     }
   }
   throw new Error("All Groq models failed or timed out")
+}
+
+async function callGemini(
+  apiKey: string,
+  messages: { role: string; content: string }[]
+): Promise<string> {
+  for (const model of GEMINI_MODELS) {
+    const controller = new AbortController()
+    const t = setTimeout(() => controller.abort(), 15000)
+    try {
+      // Gemini API expects 'contents' instead of 'messages' and specific role mapping
+      const geminiMessages = messages.map(m => ({
+        role: m.role === "system" ? "user" : m.role, // Gemini doesn't have 'system' role, map to 'user'
+        parts: [{ text: m.content }]
+      }))
+      const body = { contents: geminiMessages, generationConfig: { temperature: 0.3, maxOutputTokens: 16384, responseMimeType: "application/json" } }
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => "")
+        if (res.status === 429 || res.status === 413) continue
+        if (res.status === 400 && bodyText.includes("responseMimeType")) {
+          // Model doesn't support responseMimeType — retry once without it
+          const retryBody = { contents: geminiMessages, generationConfig: { temperature: 0.3, maxOutputTokens: 16384 } }
+          const retryRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(retryBody),
+            signal: controller.signal,
+          })
+          if (!retryRes.ok) {
+            if (retryRes.status === 429 || retryRes.status === 413) continue
+            continue
+          }
+          const data: any = await retryRes.json()
+          const content: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ""
+          if (content?.trim()) return content
+          continue
+        }
+        continue
+      }
+      const data: any = await res.json()
+      const content: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ""
+      if (content?.trim()) return content
+    } catch {
+      continue
+    } finally {
+      clearTimeout(t)
+    }
+  }
+  throw new Error("All Gemini models failed or timed out")
 }
 
 export default defineConfig({
