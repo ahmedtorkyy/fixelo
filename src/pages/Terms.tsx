@@ -1,5 +1,9 @@
+import { Seo } from "@/components/common/Seo"
+
 export default function TermsPage() {
   return (
+    <>
+    <Seo title="Terms of Service" description="Terms of Service for Fixelo — an independent Windows repair tool platform. Not affiliated with Microsoft." canonical="https://fixelo.pages.dev/terms" />
     <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6">
       <h1 className="text-3xl font-bold text-white mb-8">Terms of Service</h1>
       <div className="prose prose-invert max-w-none space-y-6 text-surface-300 leading-relaxed">
@@ -35,5 +39,6 @@ export default function TermsPage() {
         <p>Fixelo reserves the right to modify these Terms of Service at any time. Continued use of the platform after modifications constitutes acceptance of the updated terms.</p>
       </div>
     </div>
+    </>
   )
 }

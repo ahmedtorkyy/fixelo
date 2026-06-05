@@ -3,11 +3,14 @@ import { Link } from "react-router"
 import { ArrowRight, Send, CheckCircle, Search } from "lucide-react"
 import { Card } from "@/components/common/Card"
 import { Button } from "@/components/common/Button"
+import { Seo } from "@/components/common/Seo"
 import { COMMUNITY_FIXES, COMMUNITY_CATEGORIES } from "@/lib/communityFixes"
 import { useDownloadCounts, submitCommunityFix } from "@/hooks/useSupabase"
 
 export default function CommunityPage() {
   const [activeCategory, setActiveCategory] = useState<string>("All")
+
+  const seoDescription = "Browse community-tested Windows fixes. Download safe, pre-approved scripts for common Windows problems, all with automatic undo."
   const [search, setSearch] = useState("")
   const { counts } = useDownloadCounts()
 
@@ -29,6 +32,8 @@ export default function CommunityPage() {
     : byCategory
 
   return (
+    <>
+    <Seo title="Community Windows Fixes — Fixelo" description={seoDescription} canonical="https://fixelo.pages.dev/community" />
     <div className="max-w-5xl mx-auto py-12 px-4 sm:px-6">
       <div className="text-center mb-10">
         <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Community Fix Library</h1>
@@ -111,6 +116,7 @@ export default function CommunityPage() {
 
       <SubmitFixForm />
     </div>
+    </>
   )
 }
 

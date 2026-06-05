@@ -9,6 +9,7 @@ import { CodeBlock } from "@/components/fix/CodeBlock"
 import { VerifyResult } from "@/components/fix/VerifyResult"
 import { useToolGenerator } from "@/hooks/useToolGenerator"
 import { showToast } from "@/components/common/Toast"
+import { Seo } from "@/components/common/Seo"
 import type { ToolConfig } from "@/lib/toolConfigs"
 
 type ToolStep = "download" | "verify" | "success" | "failure"
@@ -354,7 +355,30 @@ export function ToolPageLayout({ tool }: ToolPageProps) {
   }
 
   // --- INPUT SCREEN ---
+  const seoDescription = tool.longDescription.length > 160
+    ? tool.longDescription.slice(0, 157) + "..."
+    : tool.longDescription
+
   return (
+    <>
+    <Seo
+      title={`${tool.title} — ${tool.description}`}
+      description={seoDescription}
+      canonical={`https://fixelo.pages.dev/tools/${tool.slug}`}
+      jsonLd={{
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": tool.title,
+        "description": tool.description,
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Windows",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }}
+    />
     <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6">
       <div className="flex items-center gap-2 text-xs text-surface-500 mb-6">
         <Link to="/tools" className="hover:text-brand-400 transition-colors">Tools</Link>
@@ -443,5 +467,6 @@ export function ToolPageLayout({ tool }: ToolPageProps) {
         </p>
       )}
     </div>
+    </>
   )
 }

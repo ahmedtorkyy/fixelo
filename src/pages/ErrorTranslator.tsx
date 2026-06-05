@@ -2,6 +2,7 @@ import { useState } from "react"
 import { AlertCircle, Wrench, ChevronRight, CheckCircle, AlertTriangle, XCircle } from "lucide-react"
 import { Button } from "@/components/common/Button"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
+import { Seo } from "@/components/common/Seo"
 import { translateError } from "@/lib/scriptGenerator"
 import type { ErrorTranslation } from "@/types/scanner"
 
@@ -26,6 +27,11 @@ export default function ErrorTranslatorPage() {
   const [result, setResult] = useState<ErrorTranslation | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const seoTitle = result ? `Windows Error ${input} Explained — Fixelo` : "Windows Error Code Translator — Fixelo"
+  const seoDesc = result
+    ? `Windows error ${input}: ${result.plainExplanation.substring(0, 140)}`
+    : "Translate any Windows error code into plain English. Get the meaning, severity, and step-by-step fix. No technical skill needed."
+
   const handleTranslate = async () => {
     if (!input.trim()) return
     setLoading(true)
@@ -44,6 +50,8 @@ export default function ErrorTranslatorPage() {
   const sev = result ? severityConfig[result.severity] : null
 
   return (
+    <>
+    <Seo title={seoTitle} description={seoDesc} canonical="https://fixelo.pages.dev/error-translator" />
     <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 space-y-8">
       <div className="text-center">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand-600/10 border border-brand-600/20 rounded-full text-brand-400 text-sm font-medium mb-6">
@@ -142,5 +150,6 @@ export default function ErrorTranslatorPage() {
         </div>
       )}
     </div>
+    </>
   )
 }

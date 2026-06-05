@@ -1,67 +1,80 @@
+import { lazy, Suspense } from "react"
 import { BrowserRouter, Routes, Route } from "react-router"
+import { HelmetProvider } from "react-helmet-async"
 import { Layout } from "@/components/layout/Layout"
-import HomePage from "@/pages/Home"
-import HistoryPage from "@/pages/History"
-import TermsPage from "@/pages/Terms"
-import PrivacyPage from "@/pages/Privacy"
-import DisclaimerPage from "@/pages/Disclaimer"
-import ToolsPage from "@/pages/Tools"
-import DiagnosePage from "@/pages/Diagnose"
-import AgentPage from "@/pages/Agent"
-import CommunityPage from "@/pages/Community"
-import CommunityFixPage from "@/pages/CommunityFixPage"
-import GamingBoostPage from "@/pages/tools/GamingBoost"
-import PrivacyProtectorPage from "@/pages/tools/PrivacyProtector"
-import NewPCSetupPage from "@/pages/tools/NewPCSetup"
-import StartupManagerPage from "@/pages/tools/StartupManager"
-import NetworkOptimizerPage from "@/pages/tools/NetworkOptimizer"
-import MonthlyMaintenancePage from "@/pages/tools/MonthlyMaintenance"
-import WifiNetworkFixerPage from "@/pages/tools/WifiNetworkFixer"
-import WindowsUpdateFixerPage from "@/pages/tools/WindowsUpdateFixer"
-import SlowPCFixPage from "@/pages/tools/SlowPCFix"
-import BlueScreenRecoveryPage from "@/pages/tools/BlueScreenRecovery"
-import AudioFixPage from "@/pages/tools/AudioFix"
-import DisplayResolutionFixPage from "@/pages/tools/DisplayResolutionFix"
-import CorruptedFilesFixPage from "@/pages/tools/CorruptedFilesFix"
-import DiskErrorFixPage from "@/pages/tools/DiskErrorFix"
-import PrinterFixPage from "@/pages/tools/PrinterFix"
-import USBDeviceFixPage from "@/pages/tools/USBDeviceFix"
-import BatteryOptimizerPage from "@/pages/tools/BatteryOptimizer"
-import SSDOptimizerPage from "@/pages/tools/SSDOptimizer"
-import DarkModeSetupPage from "@/pages/tools/DarkModeSetup"
-import TaskbarCustomizerPage from "@/pages/tools/TaskbarCustomizer"
-import AutoShutdownPage from "@/pages/tools/AutoShutdown"
-import AutoBackupPage from "@/pages/tools/AutoBackup"
-import DriverManagerPage from "@/pages/tools/DriverManager"
-import WingetInstallerPage from "@/pages/tools/WingetInstaller"
-import DevEnvironmentPage from "@/pages/tools/DevEnvironment"
-import ParentalControlsPage from "@/pages/tools/ParentalControls"
-import VirusScannerPage from "@/pages/tools/VirusScanner"
-import WindowsSearchFixPage from "@/pages/tools/WindowsSearchFix"
-import BluetoothFixPage from "@/pages/tools/BluetoothFix"
-import ExplorerFixPage from "@/pages/tools/ExplorerFix"
-import ClockSyncPage from "@/pages/tools/ClockSync"
-import TroubleshooterRunnerPage from "@/pages/tools/TroubleshooterRunner"
-import StoreFixPage from "@/pages/tools/StoreFix"
-import NetworkStackResetPage from "@/pages/tools/NetworkStackReset"
-import ActivationFixPage from "@/pages/tools/ActivationFix"
-import KeyboardMouseFixPage from "@/pages/tools/KeyboardMouseFix"
-import CameraFixPage from "@/pages/tools/CameraFix"
-import RuntimeInstallerPage from "@/pages/tools/RuntimeInstaller"
-import FontCacheFixPage from "@/pages/tools/FontCacheFix"
-import WindowsHelloFixPage from "@/pages/tools/WindowsHelloFix"
-import DateTimeFormatFixPage from "@/pages/tools/DateTimeFormatFix"
-import WindowsAppsRepairPage from "@/pages/tools/WindowsAppsRepair"
-import FileAssociationGuardianPage from "@/pages/tools/FileAssociationGuardian"
-import ContextMenuCleanerPage from "@/pages/tools/ContextMenuCleaner"
-import SystemTweaksPage from "@/pages/tools/SystemTweaks"
-import ErrorTranslatorPage from "@/pages/ErrorTranslator"
-import ScriptScannerPage from "@/pages/ScriptScanner"
-import NotFoundPage from "@/pages/NotFound"
+import { LoadingSpinner } from "@/components/common/LoadingSpinner"
+
+const HomePage = lazy(() => import("@/pages/Home"))
+const HistoryPage = lazy(() => import("@/pages/History"))
+const TermsPage = lazy(() => import("@/pages/Terms"))
+const PrivacyPage = lazy(() => import("@/pages/Privacy"))
+const DisclaimerPage = lazy(() => import("@/pages/Disclaimer"))
+const ToolsPage = lazy(() => import("@/pages/Tools"))
+const DiagnosePage = lazy(() => import("@/pages/Diagnose"))
+const AgentPage = lazy(() => import("@/pages/Agent"))
+const CommunityPage = lazy(() => import("@/pages/Community"))
+const CommunityFixPage = lazy(() => import("@/pages/CommunityFixPage"))
+const GamingBoostPage = lazy(() => import("@/pages/tools/GamingBoost"))
+const PrivacyProtectorPage = lazy(() => import("@/pages/tools/PrivacyProtector"))
+const NewPCSetupPage = lazy(() => import("@/pages/tools/NewPCSetup"))
+const StartupManagerPage = lazy(() => import("@/pages/tools/StartupManager"))
+const NetworkOptimizerPage = lazy(() => import("@/pages/tools/NetworkOptimizer"))
+const MonthlyMaintenancePage = lazy(() => import("@/pages/tools/MonthlyMaintenance"))
+const WifiNetworkFixerPage = lazy(() => import("@/pages/tools/WifiNetworkFixer"))
+const WindowsUpdateFixerPage = lazy(() => import("@/pages/tools/WindowsUpdateFixer"))
+const SlowPCFixPage = lazy(() => import("@/pages/tools/SlowPCFix"))
+const BlueScreenRecoveryPage = lazy(() => import("@/pages/tools/BlueScreenRecovery"))
+const AudioFixPage = lazy(() => import("@/pages/tools/AudioFix"))
+const DisplayResolutionFixPage = lazy(() => import("@/pages/tools/DisplayResolutionFix"))
+const CorruptedFilesFixPage = lazy(() => import("@/pages/tools/CorruptedFilesFix"))
+const DiskErrorFixPage = lazy(() => import("@/pages/tools/DiskErrorFix"))
+const PrinterFixPage = lazy(() => import("@/pages/tools/PrinterFix"))
+const USBDeviceFixPage = lazy(() => import("@/pages/tools/USBDeviceFix"))
+const BatteryOptimizerPage = lazy(() => import("@/pages/tools/BatteryOptimizer"))
+const SSDOptimizerPage = lazy(() => import("@/pages/tools/SSDOptimizer"))
+const DarkModeSetupPage = lazy(() => import("@/pages/tools/DarkModeSetup"))
+const TaskbarCustomizerPage = lazy(() => import("@/pages/tools/TaskbarCustomizer"))
+const AutoShutdownPage = lazy(() => import("@/pages/tools/AutoShutdown"))
+const AutoBackupPage = lazy(() => import("@/pages/tools/AutoBackup"))
+const DriverManagerPage = lazy(() => import("@/pages/tools/DriverManager"))
+const WingetInstallerPage = lazy(() => import("@/pages/tools/WingetInstaller"))
+const DevEnvironmentPage = lazy(() => import("@/pages/tools/DevEnvironment"))
+const ParentalControlsPage = lazy(() => import("@/pages/tools/ParentalControls"))
+const VirusScannerPage = lazy(() => import("@/pages/tools/VirusScanner"))
+const WindowsSearchFixPage = lazy(() => import("@/pages/tools/WindowsSearchFix"))
+const BluetoothFixPage = lazy(() => import("@/pages/tools/BluetoothFix"))
+const ExplorerFixPage = lazy(() => import("@/pages/tools/ExplorerFix"))
+const ClockSyncPage = lazy(() => import("@/pages/tools/ClockSync"))
+const TroubleshooterRunnerPage = lazy(() => import("@/pages/tools/TroubleshooterRunner"))
+const StoreFixPage = lazy(() => import("@/pages/tools/StoreFix"))
+const NetworkStackResetPage = lazy(() => import("@/pages/tools/NetworkStackReset"))
+const ActivationFixPage = lazy(() => import("@/pages/tools/ActivationFix"))
+const KeyboardMouseFixPage = lazy(() => import("@/pages/tools/KeyboardMouseFix"))
+const CameraFixPage = lazy(() => import("@/pages/tools/CameraFix"))
+const RuntimeInstallerPage = lazy(() => import("@/pages/tools/RuntimeInstaller"))
+const FontCacheFixPage = lazy(() => import("@/pages/tools/FontCacheFix"))
+const WindowsHelloFixPage = lazy(() => import("@/pages/tools/WindowsHelloFix"))
+const DateTimeFormatFixPage = lazy(() => import("@/pages/tools/DateTimeFormatFix"))
+const WindowsAppsRepairPage = lazy(() => import("@/pages/tools/WindowsAppsRepair"))
+const FileAssociationGuardianPage = lazy(() => import("@/pages/tools/FileAssociationGuardian"))
+const ContextMenuCleanerPage = lazy(() => import("@/pages/tools/ContextMenuCleaner"))
+const SystemTweaksPage = lazy(() => import("@/pages/tools/SystemTweaks"))
+const FreeUpSpacePage = lazy(() => import("@/pages/tools/FreeUpSpace"))
+const RestorePointManagerPage = lazy(() => import("@/pages/tools/RestorePointManager"))
+const MicrophoneFixPage = lazy(() => import("@/pages/tools/MicrophoneFix"))
+const PowerSleepFixPage = lazy(() => import("@/pages/tools/PowerSleepFix"))
+const OneDriveFixPage = lazy(() => import("@/pages/tools/OneDriveFix"))
+const SoftwareInstallerPage = lazy(() => import("@/pages/tools/SoftwareInstaller"))
+const DllRuntimeFixPage = lazy(() => import("@/pages/tools/DllRuntimeFix"))
+const ErrorTranslatorPage = lazy(() => import("@/pages/ErrorTranslator"))
+const ScriptScannerPage = lazy(() => import("@/pages/ScriptScanner"))
+const NotFoundPage = lazy(() => import("@/pages/NotFound"))
 
 export default function App() {
   return (
+    <HelmetProvider>
     <BrowserRouter>
+      <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><LoadingSpinner message="Loading..." /></div>}>
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
@@ -112,6 +125,13 @@ export default function App() {
           <Route path="/tools/file-association-guardian" element={<FileAssociationGuardianPage />} />
           <Route path="/tools/context-menu-cleaner" element={<ContextMenuCleanerPage />} />
           <Route path="/tools/system-tweaks" element={<SystemTweaksPage />} />
+          <Route path="/tools/free-up-space" element={<FreeUpSpacePage />} />
+          <Route path="/tools/restore-point-manager" element={<RestorePointManagerPage />} />
+          <Route path="/tools/microphone-fix" element={<MicrophoneFixPage />} />
+          <Route path="/tools/power-sleep-fix" element={<PowerSleepFixPage />} />
+          <Route path="/tools/onedrive-fix" element={<OneDriveFixPage />} />
+          <Route path="/tools/software-installer" element={<SoftwareInstallerPage />} />
+          <Route path="/tools/dll-runtime-fix" element={<DllRuntimeFixPage />} />
           <Route path="/diagnose" element={<DiagnosePage />} />
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/community/:slug" element={<CommunityFixPage />} />
@@ -124,6 +144,8 @@ export default function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
+      </Suspense>
     </BrowserRouter>
+    </HelmetProvider>
   )
 }

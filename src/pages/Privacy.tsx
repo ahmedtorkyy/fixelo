@@ -1,5 +1,9 @@
+import { Seo } from "@/components/common/Seo"
+
 export default function PrivacyPage() {
   return (
+    <>
+    <Seo title="Privacy Policy" description="Fixelo privacy policy — no data collection, no storage of personal information. Scripts run entirely on your local machine." canonical="https://fixelo.pages.dev/privacy" />
     <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6">
       <h1 className="text-3xl font-bold text-white mb-8">Privacy Policy</h1>
       <div className="prose prose-invert max-w-none space-y-6 text-surface-300 leading-relaxed">
@@ -30,5 +34,6 @@ export default function PrivacyPage() {
         </ul>
       </div>
     </div>
+    </>
   )
 }

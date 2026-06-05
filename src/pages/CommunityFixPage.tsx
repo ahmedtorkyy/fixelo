@@ -8,12 +8,15 @@ import { useGemini } from "@/hooks/useGemini"
 import { useDownloadCounts } from "@/hooks/useSupabase"
 import { downloadBatFile, generateFixFilename, generateUndoFilename } from "@/lib/batGenerator"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
+import { Seo } from "@/components/common/Seo"
 
 export default function CommunityFixPage() {
   const { slug } = useParams()
   const fix = slug ? getCommunityFix(slug) : undefined
   const { fixResult, loading, error, generateScript, reset } = useGemini()
   const { counts, incrementCount } = useDownloadCounts()
+
+  const seoDescription = fix ? `Fix "${fix.title}" — ${fix.description}. Community-tested Windows fix with automatic undo.` : "Community Windows fix"
 
   const downloadCount = fix ? (counts[fix.slug] ?? fix.downloads) : 0
 
@@ -24,6 +27,8 @@ export default function CommunityFixPage() {
 
   if (!fix) {
     return (
+      <>
+      <Seo title="Fix Not Found — Fixelo" description="This community fix doesn't exist. Browse the library for available fixes." canonical="https://fixelo.pages.dev/community" />
       <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 text-center">
         <h2 className="text-2xl font-bold text-white mb-4">Fix not found</h2>
         <p className="text-surface-400 mb-6">This fix doesn't exist in the library.</p>
@@ -31,6 +36,7 @@ export default function CommunityFixPage() {
           Browse all fixes
         </Link>
       </div>
+      </>
     )
   }
 
@@ -40,6 +46,8 @@ export default function CommunityFixPage() {
 
   if (fixResult) {
     return (
+      <>
+      <Seo title={`${fix.title} — Fix Script Ready`} description={seoDescription} canonical={`https://fixelo.pages.dev/community/${fix.slug}`} />
       <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white">{fix.title} — Ready</h2>
@@ -94,10 +102,13 @@ export default function CommunityFixPage() {
           Windows may show a permission popup (UAC) when you run the file. Click "Yes" to allow it.
         </WarningBanner>
       </div>
+      </>
     )
   }
 
   return (
+    <>
+    <Seo title={`${fix.title} — Community Fix`} description={seoDescription} canonical={`https://fixelo.pages.dev/community/${fix.slug}`} />
     <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 space-y-6">
       <Link to="/community" className="flex items-center gap-1.5 text-sm text-surface-400 hover:text-white transition-colors">
         <ArrowLeft className="w-4 h-4" />
@@ -138,5 +149,6 @@ export default function CommunityFixPage() {
         This fix will be generated specifically for your system. You will see exactly what the script does before downloading it, and you will receive an undo file to reverse any changes.
       </WarningBanner>
     </div>
+    </>
   )
 }

@@ -1,5 +1,9 @@
+import { Seo } from "@/components/common/Seo"
+
 export default function DisclaimerPage() {
   return (
+    <>
+    <Seo title="Disclaimer" description="Fixelo disclaimer — use scripts at your own risk. Not affiliated with Microsoft. No third-party download sites." canonical="https://fixelo.pages.dev/disclaimer" />
     <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6">
       <h1 className="text-3xl font-bold text-white mb-8">Disclaimer</h1>
       <div className="prose prose-invert max-w-none space-y-6 text-surface-300 leading-relaxed">
@@ -24,5 +28,6 @@ export default function DisclaimerPage() {
         <p>Fixelo is monetized through Google AdSense advertising and user subscriptions in full compliance with Google AdSense program policies. All ad placements comply with Google's publisher policies regarding content and user experience.</p>
       </div>
     </div>
+    </>
   )
 }

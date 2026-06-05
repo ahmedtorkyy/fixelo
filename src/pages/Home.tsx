@@ -8,6 +8,7 @@ import { FixResultSkeleton } from "@/components/common/Skeleton"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { ErrorMessage } from "@/components/common/ErrorMessage"
 import { Button } from "@/components/common/Button"
+import { Seo } from "@/components/common/Seo"
 
 export default function HomePage() {
   const {
@@ -54,6 +55,25 @@ export default function HomePage() {
   }, [])
 
   return (
+    <>
+    <Seo title="Fix any Windows problem in plain English" description="Describe your PC problem. Download a safe one-click fix with automatic undo. Free, no technical skill needed." canonical="https://fixelo.pages.dev" jsonLd={{
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "name": "Fixelo",
+          "url": "https://fixelo.pages.dev",
+          "description": "Fix any Windows problem in plain English. Describe your problem, get a safe one-click fix.",
+          "potentialAction": { "@type": "SearchAction", "target": "https://fixelo.pages.dev/?q={search_term_string}", "query-input": "required name=search_term_string" }
+        },
+        {
+          "@type": "Organization",
+          "name": "Fixelo",
+          "url": "https://fixelo.pages.dev",
+          "logo": "https://fixelo.pages.dev/app-logo.png"
+        }
+      ]
+    }} />
     <div className="py-12 sm:py-16 px-4 sm:px-6">
       {currentStep === "not-windows" && fixResult && (
         <div className="max-w-3xl mx-auto text-center space-y-6" role="region" aria-live="polite">
@@ -171,5 +191,6 @@ export default function HomePage() {
         />
       )}
     </div>
+    </>
   )
 }

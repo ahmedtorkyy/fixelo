@@ -2,6 +2,7 @@ import { useState, useRef } from "react"
 import { Download, ClipboardPaste, ArrowLeft, Wrench, Wand2 } from "lucide-react"
 import { Button } from "@/components/common/Button"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
+import { Seo } from "@/components/common/Seo"
 import { ErrorMessage } from "@/components/common/ErrorMessage"
 import { WarningBanner } from "@/components/common/WarningBanner"
 import { HealthCardComponent } from "@/components/diagnose/HealthCard"
@@ -17,6 +18,9 @@ type DiagnoseStep = "main" | "loading" | "results" | "fixing" | "batch-fixing"
 
 export default function DiagnosePage() {
   const [step, setStep] = useState<DiagnoseStep>("main")
+
+  const seoTitle = step === "results" ? "PC Diagnosis Results — Fixelo" : "Diagnose Your PC — Fixelo"
+  const seoDesc = step === "results" ? "Review your PC diagnostic report and get targeted fixes for issues found." : "Generate a detailed Windows diagnostic report. Find out what's wrong with your PC in minutes."
   const [report, setReport] = useState("")
   const [diagnosis, setDiagnosis] = useState<DiagnosisReport | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -96,25 +100,36 @@ export default function DiagnosePage() {
 
   if (step === "fixing" && fixPrompt) {
     return (
+      <>
+      <Seo title="Getting Your Fix — Fixelo" description="Generating a targeted fix script based on your PC diagnosis." canonical="https://fixelo.pages.dev/diagnose" />
       <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6">
         <FixFromDiagnosis problem={fixPrompt} onBack={handleBackToResults} />
       </div>
+      </>
     )
   }
 
   if (step === "batch-fixing") {
     return (
+      <>
+      <Seo title="Batch Fix — Fixelo" description="Fixing multiple Windows issues at once from your diagnosis report." canonical="https://fixelo.pages.dev/diagnose" />
       <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6">
         <BatchFix issues={batchIssues} onBack={handleBackToResults} />
       </div>
+      </>
     )
   }
 
   if (step === "loading") {
     return (
-      <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6">
-        <LoadingSpinner message="Analyzing your PC diagnostic report..." />
+      <>
+      <Seo title="Diagnosing Your PC — Fixelo" description="Analyzing your PC diagnostic report to find issues." canonical="https://fixelo.pages.dev/diagnose" />
+      <div className="max-w-2xl mx-auto py-24 px-4">
+        <LoadingSpinner message={
+          step === "loading" ? "Analyzing your PC..." : "Generating fix..."
+        } />
       </div>
+      </>
     )
   }
 
@@ -124,6 +139,8 @@ export default function DiagnosePage() {
     const tooMany = selectedCount > 6
 
     return (
+      <>
+      <Seo title={seoTitle} description={seoDesc} canonical="https://fixelo.pages.dev/diagnose" />
       <div className={`max-w-4xl mx-auto py-12 px-4 sm:px-6 ${fixableCount > 0 ? "pb-32" : ""}`}>
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold text-white">PC Health Report</h1>
@@ -186,10 +203,13 @@ export default function DiagnosePage() {
           </div>
         )}
       </div>
+    </>
     )
   }
 
   return (
+    <>
+    <Seo title={seoTitle} description={seoDesc} canonical="https://fixelo.pages.dev/diagnose" />
     <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 space-y-8">
       <div className="text-center">
         <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Diagnose My PC</h1>
@@ -255,5 +275,6 @@ export default function DiagnosePage() {
         </div>
       </section>
     </div>
+    </>
   )
 }

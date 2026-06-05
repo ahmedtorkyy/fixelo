@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Link } from "react-router"
 import { ArrowRight, Search, AlertCircle, Shield } from "lucide-react"
 import { Card } from "@/components/common/Card"
+import { Seo } from "@/components/common/Seo"
 import { TOOLS, TOOL_CATEGORIES } from "@/lib/toolConfigs"
 
 const categoryColors: Record<string, { icon: string; text: string; bg: string }> = {
@@ -43,6 +44,8 @@ export default function ToolsPage() {
   })).filter((c) => c.tools.length > 0)
 
   return (
+    <>
+    <Seo title="All Windows Fix Tools — 52 free tools" description="Browse 52 free Windows tools. Fix crashes, clean junk, boost privacy, automate tasks, install software, and more. No technical skill needed." canonical="https://fixelo.pages.dev/tools" />
     <div className="max-w-5xl mx-auto py-12 px-4 sm:px-6">
       <div className="text-center mb-10">
         <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Explore Tools</h1>
@@ -149,5 +152,6 @@ export default function ToolsPage() {
         ))}
       </div>
     </div>
+    </>
   )
 }

@@ -1,3 +1,4 @@
+import { Seo } from "@/components/common/Seo"
 import { useFixHistory } from "@/hooks/useFixHistory"
 import { Card } from "@/components/common/Card"
 import { Button } from "@/components/common/Button"
@@ -7,6 +8,10 @@ import type { HistoryEntry } from "@/types/fix"
 
 export default function HistoryPage() {
   const { history, clearAll } = useFixHistory()
+
+  const seoDescription = history.length > 0
+    ? `View your ${history.length} recent Windows fixes. Redownload fix or undo scripts anytime.`
+    : "View your recent Windows fix history. Redownload fix or undo scripts anytime."
 
   const handleDownload = (entry: HistoryEntry, type: "fix" | "undo") => {
     const fixFilename = generateFixFilenameFromProblem(entry.problemDescription)
@@ -29,6 +34,8 @@ export default function HistoryPage() {
   }
 
   return (
+    <>
+    <Seo title="My Fix History — Fixelo" description={seoDescription} canonical="https://fixelo.pages.dev/history" />
     <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6">
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -94,5 +101,6 @@ export default function HistoryPage() {
         </div>
       )}
     </div>
+    </>
   )
 }

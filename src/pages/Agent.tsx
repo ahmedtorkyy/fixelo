@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router"
 import { ArrowLeft, Send, Download, ShieldOff, Plus, Trash2, MessageSquare, Menu, X, CheckCircle2, Wrench } from "lucide-react"
 import { Button } from "@/components/common/Button"
 import { VoiceInput } from "@/components/common/VoiceInput"
+import { Seo } from "@/components/common/Seo"
 import { WarningBanner } from "@/components/common/WarningBanner"
 import { CodeBlock } from "@/components/fix/CodeBlock"
 import { VerifyResult } from "@/components/fix/VerifyResult"
@@ -199,6 +200,8 @@ export default function AgentPage() {
   }, [messages, isGenerating])
 
   return (
+    <>
+    <Seo title="Fixie AI Agent — Conversational Windows Fixer" description="Chat with Fixie, your AI Windows assistant. Describe your problems conversationally and get safe PowerShell scripts with automatic undo." canonical="https://fixelo.pages.dev/agent" />
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
 
       {/* Sidebar */}
@@ -336,5 +339,6 @@ export default function AgentPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }

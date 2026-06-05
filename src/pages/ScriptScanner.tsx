@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Shield, CheckCircle, XCircle, AlertTriangle, Star } from "lucide-react"
 import { Button } from "@/components/common/Button"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
+import { Seo } from "@/components/common/Seo"
 import { scanScript } from "@/lib/scriptGenerator"
 import type { ScriptScanResult } from "@/types/scanner"
 
@@ -48,7 +49,14 @@ export default function ScriptScannerPage() {
 
   const labelCfg = result ? labelConfig[result.safetyLabel] : null
 
+  const seoTitle = result ? `Script Safety Report — Fixelo` : "Script Safety Scanner — Fixelo"
+  const seoDesc = result
+    ? `Script safety analysis: ${result.dangerousItems.length > 0 ? result.dangerousItems.join(", ").substring(0, 140) : "No risks found"}`
+    : "Paste any PowerShell or batch script to get an AI safety analysis. See exactly what each command does before you run it."
+
   return (
+    <>
+    <Seo title={seoTitle} description={seoDesc} canonical="https://fixelo.pages.dev/script-scanner" />
     <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 space-y-8">
       <div className="text-center">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand-600/10 border border-brand-600/20 rounded-full text-brand-400 text-sm font-medium mb-6">
@@ -145,5 +153,6 @@ export default function ScriptScannerPage() {
         </div>
       )}
     </div>
+    </>
   )
 }
