@@ -123,23 +123,6 @@ async function callGroq(apiKey: string, messages: ChatMessage[]): Promise<string
     }
   }
   throw new Error(`All Groq models failed: ${errors.join(" | ")}`)
-          const data: any = await retryRes.json()
-          const content: string = data.choices?.[0]?.message?.content ?? ""
-          if (content?.trim()) return content
-          continue
-        }
-        continue
-      }
-      const data: any = await res.json()
-      const content: string = data.choices?.[0]?.message?.content ?? ""
-      if (content?.trim()) return content
-    } catch {
-      continue
-    } finally {
-      clearTimeout(t)
-    }
-  }
-  throw new Error("All Groq models failed or timed out")
 }
 
 async function callGemini(apiKey: string, messages: ChatMessage[]): Promise<string> {
