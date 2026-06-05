@@ -56,6 +56,30 @@ async function callGemini(apiKey: string, messages: ChatMessage[]): Promise<stri
   throw new Error(`All Gemini models failed: ${errors.join(" | ")}`)
 }
 
+async function callDeepSeek(apiKey: string, messages: ChatMessage[]): Promise<string> {
+  const body = { model: "deepseek-v4-flash", messages, temperature: 0.3, max_tokens: 16384, response_format: { type: "json_object" } }
+  const controller = new AbortController()
+  const t = setTimeout(() => controller.abort(), 30000)
+  try {
+    const res = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => "")
+      throw new Error(`DeepSeek HTTP ${res.status}: ${bodyText.slice(0, 200)}`)
+    }
+    const data: any = await res.json()
+    const content: string = data.choices?.[0]?.message?.content ?? ""
+    if (!content?.trim()) throw new Error("Empty DeepSeek response")
+    return content
+  } finally {
+    clearTimeout(t)
+  }
+}
+
 export async function onRequest(context: {
   request: Request
   env: Record<string, string>
@@ -81,20 +105,63 @@ export async function onRequest(context: {
     return new Response("Invalid JSON", { status: 400, headers })
   }
 
-  try {
-    const key = context.env.GOOGLE_API_KEY
-    if (!key) return new Response("Gemini API key not configured", { status: 500, headers })
-    const content = await callGemini(key, body.messages ?? [])
+  const msgs = body.messages ?? []
 
-    return new Response(JSON.stringify({ content }), {
-      status: 200,
-      headers: { ...headers, "Content-Type": "application/json" },
-    })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error"
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 502,
-      headers: { ...headers, "Content-Type": "application/json" },
-    })
+  // Try Gemini first
+  const geminiKey = context.env.GOOGLE_API_KEY
+  if (geminiKey) {
+    try {
+      const content = await callGemini(geminiKey, msgs)
+      return new Response(JSON.stringify({ content }), {
+        status: 200,
+        headers: { ...headers, "Content-Type": "application/json" },
+      })
+    } catch (err) {
+      const geminiErr = err instanceof Error ? err.message : String(err)
+      // Fall through to DeepSeek
+      const deepseekKey = context.env.DEEPSEEK_API_KEY
+      if (deepseekKey) {
+        try {
+          const content = await callDeepSeek(deepseekKey, msgs)
+          return new Response(JSON.stringify({ content }), {
+            status: 200,
+            headers: { ...headers, "Content-Type": "application/json" },
+          })
+        } catch (dsErr) {
+          const dsMsg = dsErr instanceof Error ? dsErr.message : String(dsErr)
+          return new Response(JSON.stringify({ error: `Gemini: ${geminiErr} | DeepSeek: ${dsMsg}` }), {
+            status: 502,
+            headers: { ...headers, "Content-Type": "application/json" },
+          })
+        }
+      }
+      return new Response(JSON.stringify({ error: geminiErr }), {
+        status: 502,
+        headers: { ...headers, "Content-Type": "application/json" },
+      })
+    }
   }
+
+  // No Gemini key — try DeepSeek only
+  const deepseekKey = context.env.DEEPSEEK_API_KEY
+  if (deepseekKey) {
+    try {
+      const content = await callDeepSeek(deepseekKey, msgs)
+      return new Response(JSON.stringify({ content }), {
+        status: 200,
+        headers: { ...headers, "Content-Type": "application/json" },
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 502,
+        headers: { ...headers, "Content-Type": "application/json" },
+      })
+    }
+  }
+
+  return new Response(JSON.stringify({ error: "No API keys configured" }), {
+    status: 500,
+    headers: { ...headers, "Content-Type": "application/json" },
+  })
 }

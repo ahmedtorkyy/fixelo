@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { defineConfig, type Plugin } from "vite"
 
-function loadGoogleKey(): string {
+function loadEnvKey(name: string): string {
   const envPath = path.resolve(__dirname, ".env")
   try {
     const content = fs.readFileSync(envPath, "utf-8")
@@ -13,9 +13,7 @@ function loadGoogleKey(): string {
       if (!trimmed || trimmed.startsWith("#")) continue
       const eq = trimmed.indexOf("=")
       if (eq === -1) continue
-      const k = trimmed.slice(0, eq).trim()
-      const v = trimmed.slice(eq + 1).trim()
-      if (k === "GOOGLE_API_KEY") return v
+      if (trimmed.slice(0, eq).trim() === name) return trimmed.slice(eq + 1).trim()
     }
   } catch { /* .env may not exist */ }
   return ""
@@ -78,6 +76,30 @@ async function callGemini(apiKey: string, messages: { role: string; content: str
   throw new Error(`All Gemini models failed: ${errors.join(" | ")}`)
 }
 
+async function callDeepSeek(apiKey: string, messages: { role: string; content: string }[]): Promise<string> {
+  const body = { model: "deepseek-v4-flash", messages, temperature: 0.3, max_tokens: 16384, response_format: { type: "json_object" } }
+  const controller = new AbortController()
+  const t = setTimeout(() => controller.abort(), 30000)
+  try {
+    const res = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => "")
+      throw new Error(`DeepSeek HTTP ${res.status}: ${bodyText.slice(0, 200)}`)
+    }
+    const data: any = await res.json()
+    const content: string = data.choices?.[0]?.message?.content ?? ""
+    if (!content?.trim()) throw new Error("Empty DeepSeek response")
+    return content
+  } finally {
+    clearTimeout(t)
+  }
+}
+
 const aiProxyPlugin: Plugin = {
   name: "ai-proxy",
   configureServer(server) {
@@ -100,17 +122,52 @@ const aiProxyPlugin: Plugin = {
         return
       }
 
-      try {
-        const key = loadGoogleKey()
-        if (!key) throw new Error("GOOGLE_API_KEY not set in .env")
-        const content = await callGemini(key, parsed.messages ?? [])
+      const msgs = parsed.messages ?? []
 
-        res.setHeader("Content-Type", "application/json")
-        res.end(JSON.stringify({ content }))
-      } catch (err: any) {
-        res.statusCode = 502
-        res.end(JSON.stringify({ error: err.message }))
+      const geminiKey = loadEnvKey("GOOGLE_API_KEY")
+      const deepseekKey = loadEnvKey("DEEPSEEK_API_KEY")
+
+      if (geminiKey) {
+        try {
+          const content = await callGemini(geminiKey, msgs)
+          res.setHeader("Content-Type", "application/json")
+          res.end(JSON.stringify({ content }))
+          return
+        } catch (err: any) {
+          const geminiErr = err.message
+          if (deepseekKey) {
+            try {
+              const content = await callDeepSeek(deepseekKey, msgs)
+              res.setHeader("Content-Type", "application/json")
+              res.end(JSON.stringify({ content }))
+              return
+            } catch (dsErr: any) {
+              res.statusCode = 502
+              res.end(JSON.stringify({ error: `Gemini: ${geminiErr} | DeepSeek: ${dsErr.message}` }))
+              return
+            }
+          }
+          res.statusCode = 502
+          res.end(JSON.stringify({ error: geminiErr }))
+          return
+        }
       }
+
+      if (deepseekKey) {
+        try {
+          const content = await callDeepSeek(deepseekKey, msgs)
+          res.setHeader("Content-Type", "application/json")
+          res.end(JSON.stringify({ content }))
+          return
+        } catch (err: any) {
+          res.statusCode = 502
+          res.end(JSON.stringify({ error: err.message }))
+          return
+        }
+      }
+
+      res.statusCode = 500
+      res.end(JSON.stringify({ error: "No API keys configured" }))
     })
   },
 }

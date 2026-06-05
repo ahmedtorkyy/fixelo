@@ -1,6 +1,6 @@
 async function callProxy(prompt: string): Promise<string> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 45000)
+  const timeout = setTimeout(() => controller.abort(), 60000)
 
   const res = await fetch("/api/ai", {
     method: "POST",
@@ -30,12 +30,8 @@ async function callProxy(prompt: string): Promise<string> {
 }
 
 export async function generateContent(prompt: string): Promise<string> {
-  try {
-    const result = await callProxy(prompt)
-    return result
-  } catch (err) {
-    throw new Error(`Gemini failed: ${err instanceof Error ? err.message : String(err)}`)
-  }
+  const result = await callProxy(prompt)
+  return result
 }
 
-export const MODEL_ID = "Gemini 2.5 Flash (via Cloudflare proxy)"
+export const MODEL_ID = "Gemini 2.5 Flash + DeepSeek V4 Flash (via Cloudflare proxy)"
