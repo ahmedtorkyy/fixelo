@@ -28,6 +28,7 @@ const GROQ_MODELS = [
 const GEMINI_MODELS = ["gemini-pro"]
 
 async function callOpenRouter(apiKey: string, messages: ChatMessage[]): Promise<string> {
+  const errors: string[] = []
   for (const model of OPENROUTER_MODELS) {
     const controller = new AbortController()
     const t = setTimeout(() => controller.abort(), 15000)
@@ -41,6 +42,7 @@ async function callOpenRouter(apiKey: string, messages: ChatMessage[]): Promise<
       })
       if (!res.ok) {
         const bodyText = await res.text().catch(() => "")
+        errors.push(`${model}: HTTP ${res.status} — ${bodyText.slice(0, 200)}`)
         if (res.status === 429 || res.status === 413) continue
         if (res.status === 400 && bodyText.includes("response_format")) {
           const retryBody = { model, messages, temperature: 0.3, max_tokens: 16384 }
@@ -51,6 +53,8 @@ async function callOpenRouter(apiKey: string, messages: ChatMessage[]): Promise<
             signal: controller.signal,
           })
           if (!retryRes.ok) {
+            const retryText = await retryRes.text().catch(() => "")
+            errors.push(`${model} (retry): HTTP ${retryRes.status} — ${retryText.slice(0, 200)}`)
             if (retryRes.status === 429 || retryRes.status === 413) continue
             continue
           }
@@ -64,13 +68,14 @@ async function callOpenRouter(apiKey: string, messages: ChatMessage[]): Promise<
       const data: any = await res.json()
       const content: string = data.choices?.[0]?.message?.content ?? ""
       if (content?.trim()) return content
-    } catch {
+    } catch (err) {
+      errors.push(`${model}: ${err instanceof Error ? err.message : String(err)}`)
       continue
     } finally {
       clearTimeout(t)
     }
   }
-  throw new Error("All OpenRouter models failed or timed out")
+  throw new Error(`All OpenRouter models failed: ${errors.join(" | ")}`)
 }
 
 async function callGroq(apiKey: string, messages: ChatMessage[]): Promise<string> {
@@ -126,6 +131,7 @@ async function callGroq(apiKey: string, messages: ChatMessage[]): Promise<string
 }
 
 async function callGemini(apiKey: string, messages: ChatMessage[]): Promise<string> {
+  const errors: string[] = []
   for (const model of GEMINI_MODELS) {
     const controller = new AbortController()
     const t = setTimeout(() => controller.abort(), 15000)
@@ -139,6 +145,7 @@ async function callGemini(apiKey: string, messages: ChatMessage[]): Promise<stri
       })
       if (!res.ok) {
         const bodyText = await res.text().catch(() => "")
+        errors.push(`${model}: HTTP ${res.status} — ${bodyText.slice(0, 200)}`)
         if (res.status === 429 || res.status === 413) continue
         if (res.status === 400 && bodyText.includes("responseMimeType")) {
           // Model doesn't support responseMimeType — retry once without it
@@ -150,6 +157,8 @@ async function callGemini(apiKey: string, messages: ChatMessage[]): Promise<stri
             signal: controller.signal,
           })
           if (!retryRes.ok) {
+            const retryText = await retryRes.text().catch(() => "")
+            errors.push(`${model} (retry): HTTP ${retryRes.status} — ${retryText.slice(0, 200)}`)
             if (retryRes.status === 429 || retryRes.status === 413) continue
             continue
           }
@@ -163,13 +172,14 @@ async function callGemini(apiKey: string, messages: ChatMessage[]): Promise<stri
       const data: any = await res.json()
       const content: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ""
       if (content?.trim()) return content
-    } catch {
+    } catch (err) {
+      errors.push(`${model}: ${err instanceof Error ? err.message : String(err)}`)
       continue
     } finally {
       clearTimeout(t)
     }
   }
-  throw new Error("All Gemini models failed or timed out")
+  throw new Error(`All Gemini models failed: ${errors.join(" | ")}`)
 }
 
 export async function onRequest(context: {
