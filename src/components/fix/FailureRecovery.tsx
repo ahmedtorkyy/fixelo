@@ -227,20 +227,20 @@ export function FailureRecovery({
         {/* Log box — clearly visible, explained, no longer hidden */}
         <div className="bg-surface-900 border border-surface-800 rounded-2xl p-6 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <h2 className="text-lg font-semibold text-white">Paste the fix log</h2>
+            <h2 className="text-lg font-semibold text-white">Paste the report the fix saved for you</h2>
             <span className="text-xs font-medium text-green-300 bg-green-950/40 border border-green-800/40 px-2.5 py-0.5 rounded-full">
               Recommended — most accurate
             </span>
           </div>
-          <p className="text-surface-300 text-sm">
-            When the fix finished running, it automatically copied a detailed log to your clipboard. Paste it here and
+          <p className="text-surface-300 text-base">
+            When the fix finished running, it automatically copied a detailed report to your clipboard (it's a small bit of text the fix copied automatically — just paste it). Paste it here and
             our AI can pinpoint exactly what went wrong. Press{" "}
             <kbd className="px-1.5 py-0.5 bg-surface-800 rounded text-xs font-mono text-surface-200">Ctrl</kbd>
             {" "}+{" "}
             <kbd className="px-1.5 py-0.5 bg-surface-800 rounded text-xs font-mono text-surface-200">V</kbd>
             {" "}or use the button below. If you don't have it, just use the box above.
           </p>
-          <label htmlFor="fix-log" className="sr-only">Paste the fix log from your clipboard</label>
+          <label htmlFor="fix-log" className="sr-only">Paste the report from your clipboard</label>
           <textarea
             id="fix-log"
             ref={logRef}

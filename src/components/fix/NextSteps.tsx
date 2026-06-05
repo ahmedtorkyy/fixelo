@@ -1,4 +1,4 @@
-import { Download, MousePointerClick, ShieldCheck, MessageCircleQuestion } from "lucide-react"
+import { Download, MousePointerClick, ShieldCheck, MessageCircleQuestion, FileWarning, ShieldAlert } from "lucide-react"
 
 const STEPS = [
   {
@@ -7,9 +7,19 @@ const STEPS = [
     desc: "The fix file (a .bat file) just saved to your Downloads folder.",
   },
   {
+    icon: FileWarning,
+    title: "If your browser asks, click Keep",
+    desc: "Chrome or Edge may warn that the file could be dangerous. That's a standard warning for any .bat file — click Keep (or Keep anyway) to save it.",
+  },
+  {
     icon: MousePointerClick,
     title: "Double-click the file to run it",
     desc: "It opens a small black window and applies the fix automatically.",
+  },
+  {
+    icon: ShieldAlert,
+    title: "If Windows says 'protected your PC', click More info \u2192 Run anyway",
+    desc: "Because the fix isn't from the Microsoft Store, Windows may show a blue 'Windows protected your PC' box. Click 'More info', then 'Run anyway'. This is normal and safe for a script you downloaded yourself.",
   },
   {
     icon: ShieldCheck,
@@ -19,7 +29,7 @@ const STEPS = [
   {
     icon: MessageCircleQuestion,
     title: "Come back and tell us if it worked",
-    desc: "When the fix finishes it copies a log to your clipboard. If it didn't work, paste that log below for a smarter retry.",
+    desc: "When the fix finishes it copies a report to your clipboard (a small bit of text it copied automatically). If it didn't work, paste that report below for a smarter retry.",
   },
 ]
 
@@ -46,7 +56,7 @@ export function NextSteps() {
                 <step.icon aria-hidden="true" className="w-4 h-4 text-brand-300 shrink-0" />
                 {step.title}
               </p>
-              <p className="text-sm text-surface-300 leading-relaxed mt-0.5">{step.desc}</p>
+              <p className="text-base text-surface-300 leading-relaxed mt-0.5">{step.desc}</p>
             </div>
           </li>
         ))}
