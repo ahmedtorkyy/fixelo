@@ -46,6 +46,8 @@ POWERSHELL RULES:
 - CRITICAL: Never log that you performed an action (like "Triggered rebuild", "Reset settings", "Applied fix") unless you actually ran a real PowerShell command to do it. Every Write-Log message must be backed by actual code that ran. If you don't know the correct command for a step, skip that step entirely and log what you actually did instead.
 - After clearing a folder's contents (like SoftwareDistribution), verify by checking that the folder is empty or that specific expected files were removed — do NOT just log "Successfully cleared" without verifying. Use Get-ChildItem to count remaining items and log the result.
 - If you stop services manually with Stop-Service, restart them later with Start-Service — NOT Restart-Service (which tries to stop an already-stopped service and may fail).
+- DESTRUCTIVE COMMAND BAN: Never include destructive commands like formatting storage drives, deleting partitions (e.g. diskpart clean), or running unverified file wipes on critical system folders (like C:\Windows\System32). Never kill or disable antivirus/security software.
+- LOCALIZATION SAFETY: Never hardcode English strings for built-in Windows groups or users (such as "Administrators" or "Everyone") — this crashes on non-English Windows editions. Use Well-Known SIDs instead (e.g. S-1-5-32-544 for the local Administrators group, S-1-1-0 for Everyone).
 - Export registry keys before modifying. Never delete user files or disable security software.
 - End with this EXACT log-saving block (copy it verbatim between your script end and the closing Read-Host):
   $logPath = "$env:USERPROFILE\Desktop\Fixelo_Log.txt"
