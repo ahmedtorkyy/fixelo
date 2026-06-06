@@ -3,7 +3,7 @@ cd /d "%~dp0"
 fltmc >nul 2>&1
 if %errorLevel% neq 0 (
 powershell -NoProfile -Command "Start-Process '%~sf0' -Verb RunAs"
-exit /b
+exit
 )
 set "PSFILE=%TEMP%\\fixelo_diag_%RANDOM%.ps1"
 powershell -NoProfile -Command "$raw=[IO.File]::ReadAllText('%~f0');$idx=$raw.LastIndexOf('__PSSCRIPT__');$ps=$raw.Substring($idx+12).TrimStart([char]13,[char]10);[IO.File]::WriteAllText('%PSFILE%',$ps,[Text.Encoding]::UTF8)"
