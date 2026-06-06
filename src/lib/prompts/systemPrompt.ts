@@ -30,7 +30,7 @@ __PSSCRIPT__
 [PowerShell script here]
 
 POWERSHELL RULES:
-- When running external EXEs (regsvr32.exe, reg.exe, netsh, sc.exe, etc.), the exit code is stored in $LASTEXITCODE — NOT captured by variable assignment like $result = regsvr32.exe ... (that captures stdout, not the exit code). Always check $LASTEXITCODE after the call, e.g.: regsvr32.exe /s foo.dll; if ($LASTEXITCODE -eq 0) { ... }.
+- When running external EXEs, how you capture the exit code depends on the executable type. For console-subsystem tools (reg.exe, netsh, sc.exe, dism, sfc), use $LASTEXITCODE — it is set reliably. For GUI-subsystem executables like regsvr32.exe, PowerShell does NOT wait for them, so $LASTEXITCODE comes back empty. Instead, use Start-Process with -Wait -PassThru and read .ExitCode: $p = Start-Process -FilePath "regsvr32.exe" -ArgumentList "/s", $dllPath -Wait -PassThru -WindowStyle Hidden; if ($p.ExitCode -eq 0) { Write-Log "Verified: registered $dll" "Green" } else { Write-Log "Could not register $dll (code $($p.ExitCode))" "Yellow" }. Never rely on $LASTEXITCODE for regsvr32 or other GUI executables.
 - Use only REAL cmdlets that exist in Windows. Here are proven real cmdlets by category:
   · Registry: reg.exe, Get-ItemProperty, Set-ItemProperty, New-ItemProperty, Remove-ItemProperty, Get-ChildItem (registry provider)
   · Services: Get-Service, Set-Service, Start-Service, Stop-Service, Restart-Service, sc.exe, net start/stop
