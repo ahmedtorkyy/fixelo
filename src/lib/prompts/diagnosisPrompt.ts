@@ -51,7 +51,7 @@ The user originally had this Windows problem: "${originalProblem}"
 They ran the first fix script but it did not solve their problem.
 
 ${firstFixBlock}${descriptionBlock}${logBlock}
-FIRST, read the log and the user's description and decide whether the problem is ALREADY RESOLVED. If the log clearly shows the fix completed and the problem is fixed (success messages, verification lines, passing checks, no relevant errors), set "status" to "resolved", explain in "whatSucceeded" why you believe it is fixed, and leave "nextFixScript" and "nextUndoScript" as empty strings — do NOT invent another fix.
+FIRST, read the log and the user's description and decide whether the problem is ALREADY RESOLVED. CRITICAL: If the log contains a "RESULT: SUCCESS" line at the end, treat it as resolved — Fixelo scripts always verify the actual end state and log this line honestly; scattered intermediate "Error" lines may come from optional sub-steps that don't affect the result. If the log clearly shows the fix completed and the problem is fixed (success messages, verification lines, passing checks, a RESULT: SUCCESS/FAILED/PARTIAL line, no truly blocking errors), set "status" to "resolved", explain in "whatSucceeded" why you believe it is fixed, and leave "nextFixScript" and "nextUndoScript" as empty strings — do NOT invent another fix.
 
 ONLY if the problem genuinely still failed, set "status" to "needs-fix" and decide the best recovery strategy. You can see exactly what the first fix already did, so choose ONE of these and state which you chose:
 
