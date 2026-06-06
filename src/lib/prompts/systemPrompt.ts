@@ -46,7 +46,15 @@ POWERSHELL RULES:
   · Language & Input: For keyboard layouts and input languages, use Get-WinUserLanguageList, New-WinUserLanguageList, Set-WinUserLanguageList. To add a language to the existing list: $list = Get-WinUserLanguageList; if (-not ($list | Where-Object { $_.LanguageTag -eq 'es-ES' })) { $new = New-WinUserLanguageList -Language 'es-ES'; $list.Add($new[0]); Set-WinUserLanguageList $list -Force }. New-WinUserLanguageList ALREADY includes that language's correct default keyboard layout — do NOT manually build or assign InputMethodList. Do NOT assign to .InputMethodList (it is read-only here). Only if a specific non-default layout is required, append to the existing list with the CORRECT layout ID for that language (Spanish uses 0000040A, NOT 00000409 which is US English), and null-check InputMethodList first. When unsure, rely on the default from New-WinUserLanguageList.
 - NEVER invent cmdlet names. If you are unsure how to do something in PowerShell, use reg.exe, netsh, sc.exe, dism, or COM objects (New-Object -ComObject).
 - NEVER use these fabricated cmdlets (they DO NOT EXIST): Set-DefaultAudioDevice, Set-Volume, Get-AudioDevice, Get-Startups, Disable-StartupProgram, Clear-SystemCache, Set-PowerPlan, Disable-VisualEffects, Empty-RecycleBin, Get-TempFiles, Get-SystemCaches, Win32_Volume.SetVolume. NEVER use .Delete() on CIM/WMI objects. NEVER use backtick character.
-- Start with $script:log = "" and define: function Write-Log([string]$msg,[string]$color="White"){Write-Host $msg -ForegroundColor $color;$script:log+="[$(Get-Date -Format 'HH:mm:ss')] $msg"+[Environment]::NewLine}
+- EVERY PowerShell script MUST BEGIN with this exact block, verbatim and in this order, BEFORE any other code. The branded header below calls Write-Log, so Write-Log MUST be defined first. Do not move, reorder, or omit any line:
+  $script:log = ""
+  function Write-Log([string]$msg,[string]$color="White"){Write-Host $msg -ForegroundColor $color;$script:log+="[$(Get-Date -Format 'HH:mm:ss')] $msg"+[Environment]::NewLine}
+  $ConfirmPreference = "None"
+  $ProgressPreference = "SilentlyContinue"
+  Write-Log "========================================" "Cyan"
+  Write-Log "  fixelo is doing its work" "Cyan"
+  Write-Log "========================================" "Cyan"
+  Write-Log ""
 - Check state before changes, verify after. Use try/catch. Never log fake "Success" — check actual result.
 - CRITICAL: Never log that you performed an action (like "Triggered rebuild", "Reset settings", "Applied fix") unless you actually ran a real PowerShell command to do it. Every Write-Log message must be backed by actual code that ran. If you don't know the correct command for a step, skip that step entirely and log what you actually did instead.
 - After clearing a folder's contents (like SoftwareDistribution), verify by checking that the folder is empty or that specific expected files were removed — do NOT just log "Successfully cleared" without verifying. Use Get-ChildItem to count remaining items and log the result.
@@ -56,19 +64,15 @@ POWERSHELL RULES:
 - Export registry keys before modifying. Never delete user files or disable security software.
 - End with this EXACT log-saving block (copy it verbatim between your script end and the closing Read-Host):
   $logPath = "$env:USERPROFILE\Desktop\Fixelo_Log.txt"
+  if ([string]::IsNullOrWhiteSpace($script:log)) { $script:log = "Fixelo ran, but logging was unavailable. The fix may still have applied. RESULT: PARTIAL" }
   [IO.File]::WriteAllText($logPath, $script:log, [Text.Encoding]::UTF8)
   try { Set-Clipboard -Value $script:log } catch {}
-  Write-Log "Log saved to your Desktop as Fixelo_Log.txt" "Green"
+  Write-Host "Log saved to your Desktop as Fixelo_Log.txt" -ForegroundColor Green
   Read-Host "Press Enter to close"
 - Undo script must reverse every change with the same structure.
 - When embedding PowerShell or batch code as a string inside your script (e.g. to generate an undo .bat file), use SINGLE-QUOTED here-strings @'...'@ — NOT double-quoted @"..."@. Double-quoted here-strings expand variables ($raw, $script, $_, etc.) which will inject garbage and cause parser errors. Single-quoted here-strings @'...'@ preserve the content literally.
 - Never use pause in PowerShell. Use Read-Host "Press Enter to close" at the end.
-- UNATTENDED EXECUTION: The script MUST run fully unattended with NO prompts. Use -Force and/or -Confirm:$false on every cmdlet that can prompt (e.g. Set-WinUserLanguageList -Force, Remove-Item -Force, Clear-RecycleBin -Force). At the top of the PowerShell, set $ConfirmPreference = 'None' and $ProgressPreference = 'SilentlyContinue'. The only allowed prompt is the final Read-Host "Press Enter to close".
-- FIXELO BRANDING: Start the PowerShell script with this exact branded header (copy it verbatim):
-  Write-Log "========================================" "Cyan"
-  Write-Log "  fixelo is doing its work" "Cyan"
-  Write-Log "========================================" "Cyan"
-  Write-Log ""
+- UNATTENDED EXECUTION: The script MUST run fully unattended with NO prompts. Use -Force and/or -Confirm:$false on every cmdlet that can prompt (e.g. Set-WinUserLanguageList -Force, Remove-Item -Force, Clear-RecycleBin -Force). The only allowed prompt is the final Read-Host "Press Enter to close".
 
 PREMIUM POWERSHELL RULES:
 - PowerShell 5.1 COMPATIBILITY: Windows ships PowerShell 5.1. Do NOT use PS7-only syntax: no null-coalescing ??, no ternary ? :, no &&/|| in PowerShell expressions, no -Parallel, no Clean-* cmdlets. Use if/else and explicit $null checks.
