@@ -11,8 +11,7 @@ function Write-Log([string]$msg, [string]$color = "White") {
 }
 
 Write-Log "========================================" "Cyan"
-Write-Log "  Fixelo v1.0 - Windows Repair Script" "Cyan"
-Write-Log "  https://fixelo.pages.dev" "Cyan"
+Write-Log "  fixelo is doing its work" "Cyan"
 Write-Log "========================================" "Cyan"
 Write-Log ""`
 }

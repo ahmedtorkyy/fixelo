@@ -66,8 +66,7 @@ POWERSHELL RULES:
 - UNATTENDED EXECUTION: The script MUST run fully unattended with NO prompts. Use -Force and/or -Confirm:$false on every cmdlet that can prompt (e.g. Set-WinUserLanguageList -Force, Remove-Item -Force, Clear-RecycleBin -Force). At the top of the PowerShell, set $ConfirmPreference = 'None' and $ProgressPreference = 'SilentlyContinue'. The only allowed prompt is the final Read-Host "Press Enter to close".
 - FIXELO BRANDING: Start the PowerShell script with this exact branded header (copy it verbatim):
   Write-Log "========================================" "Cyan"
-  Write-Log "  Fixelo v1.0 - Windows Repair Script" "Cyan"
-  Write-Log "  https://fixelo.pages.dev" "Cyan"
+  Write-Log "  fixelo is doing its work" "Cyan"
   Write-Log "========================================" "Cyan"
   Write-Log ""
 
