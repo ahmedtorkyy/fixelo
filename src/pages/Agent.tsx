@@ -8,6 +8,8 @@ import { WarningBanner } from "@/components/common/WarningBanner"
 import { CodeBlock } from "@/components/fix/CodeBlock"
 import { VerifyResult } from "@/components/fix/VerifyResult"
 import { useAgent } from "@/hooks/useAgent"
+import { RotatingStatus } from "@/components/common/RotatingStatus"
+import { AGENT_STATUS_MESSAGES } from "@/lib/statusMessages"
 import type { ChatMessage, Conversation } from "@/types/agent"
 
 const QUICK_STARTS = [
@@ -282,13 +284,7 @@ export default function AgentPage() {
 
           {isGenerating && (
             <div className="flex justify-start">
-              <div className="bg-surface-900 border border-surface-800 rounded-2xl rounded-tl-sm px-4 py-3">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 bg-brand-400 rounded-full animate-pulse" />
-                  <div className="w-2 h-2 bg-brand-400 rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
-                  <div className="w-2 h-2 bg-brand-400 rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
-                </div>
-              </div>
+              <RotatingStatus messages={AGENT_STATUS_MESSAGES} />
             </div>
           )}
 

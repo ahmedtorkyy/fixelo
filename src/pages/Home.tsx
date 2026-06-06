@@ -4,11 +4,11 @@ import { useScriptGenerator } from "@/hooks/useScriptGenerator"
 import { ProblemInput } from "@/components/fix/ProblemInput"
 import { FixResultDisplay } from "@/components/fix/FixResult"
 import { FailureRecovery } from "@/components/fix/FailureRecovery"
-import { FixResultSkeleton } from "@/components/common/Skeleton"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { ErrorMessage } from "@/components/common/ErrorMessage"
 import { Button } from "@/components/common/Button"
 import { Seo } from "@/components/common/Seo"
+import { FIX_STATUS_MESSAGES, DIAGNOSIS_STATUS_MESSAGES } from "@/lib/statusMessages"
 
 export default function HomePage() {
   const {
@@ -144,10 +144,7 @@ export default function HomePage() {
 
       {currentStep === "loading" && (
         <div className="py-8">
-          <p role="status" aria-live="polite" className="text-center text-surface-400 text-sm mb-8">
-            Analyzing your problem, please wait: <span className="text-white">"{originalProblem.slice(0, 60)}{originalProblem.length > 60 ? "..." : ""}"</span>
-          </p>
-          <FixResultSkeleton />
+          <LoadingSpinner messages={FIX_STATUS_MESSAGES} />
         </div>
       )}
 
@@ -175,7 +172,7 @@ export default function HomePage() {
 
       {currentStep === "diagnosis-loading" && (
         <div className="max-w-3xl mx-auto">
-          <LoadingSpinner message="Reading what happened to build a smarter fix..." />
+          <LoadingSpinner messages={DIAGNOSIS_STATUS_MESSAGES} />
         </div>
       )}
 
