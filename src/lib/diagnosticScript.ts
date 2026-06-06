@@ -1,10 +1,12 @@
 export const CHECK_MY_PC_SCRIPT = `@echo off
 cd /d "%~dp0"
+if "%~1"=="/elevated" goto work
 fltmc >nul 2>&1
-if %errorLevel% neq 0 (
-powershell -NoProfile -Command "Start-Process '%~sf0' -Verb RunAs"
-exit
-)
+if %errorLevel% equ 0 goto work
+powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -ArgumentList '/elevated' -Verb RunAs"
+exit /b
+
+:work
 set "PSFILE=%TEMP%\\fixelo_diag_%RANDOM%.ps1"
 powershell -NoProfile -Command "$raw=[IO.File]::ReadAllText('%~f0');$idx=$raw.LastIndexOf('__PSSCRIPT__');$ps=$raw.Substring($idx+12).TrimStart([char]13,[char]10);[IO.File]::WriteAllText('%PSFILE%',$ps,[Text.Encoding]::UTF8)"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PSFILE%"

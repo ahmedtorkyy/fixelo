@@ -11,11 +11,16 @@ SCOPE RULE:
 
 BAT FILE STRUCTURE:
 @echo off
+rem --- if relaunched with our marker, we are already elevated: go straight to work ---
+if "%~1"=="/elevated" goto work
+rem --- already admin? then go to work ---
 fltmc >nul 2>&1
-if %errorLevel% neq 0 (
-powershell -NoProfile -Command "Start-Process '%~sf0' -Verb RunAs"
-exit
-)
+if %errorLevel% equ 0 goto work
+rem --- not admin and not yet relaunched: relaunch elevated WITH the marker, then exit THIS copy ---
+powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -ArgumentList '/elevated' -Verb RunAs"
+exit /b
+
+:work
 set "PSFILE=%TEMP%\\Fixelo_%RANDOM%.ps1"
 powershell -NoProfile -Command "$raw=[IO.File]::ReadAllText('%~f0');$idx=$raw.LastIndexOf('__PSSCRIPT__');$ps=$raw.Substring($idx+12).TrimStart([char]13,[char]10);[IO.File]::WriteAllText('%PSFILE%',$ps,[Text.Encoding]::UTF8)"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PSFILE%"
@@ -58,6 +63,18 @@ POWERSHELL RULES:
 - Undo script must reverse every change with the same structure.
 - When embedding PowerShell or batch code as a string inside your script (e.g. to generate an undo .bat file), use SINGLE-QUOTED here-strings @'...'@ — NOT double-quoted @"..."@. Double-quoted here-strings expand variables ($raw, $script, $_, etc.) which will inject garbage and cause parser errors. Single-quoted here-strings @'...'@ preserve the content literally.
 - Never use pause in PowerShell. Use Read-Host "Press Enter to close" at the end.
+
+PREMIUM POWERSHELL RULES:
+- PowerShell 5.1 COMPATIBILITY: Windows ships PowerShell 5.1. Do NOT use PS7-only syntax: no null-coalescing ??, no ternary ? :, no &&/|| in PowerShell expressions, no -Parallel, no Clean-* cmdlets. Use if/else and explicit $null checks.
+- VERSION PRE-FLIGHT: At the top of the script, detect the OS version with [Environment]::OSVersion or Get-CimInstance Win32_OperatingSystem. Branch logic where Win10 and Win11 differ (e.g. Settings URIs, default paths).
+- LOCALE-SAFE: Never parse English-only command output text like "Running" or "Stopped". Use object properties and status enums: $svc.Status -eq 'Running', not string matching against localized text.
+- RESTORE POINT: Before modifying multiple registry keys or services, attempt a restore point: Checkpoint-Computer -Description "Before Fixelo fix" -RestorePointType MODIFY_SETTINGS inside try/catch (skip silently if it fails).
+- REBOOT AWARENESS: If a reboot is required to finish, announce it to the user but do NOT force a restart. Never silently restart the PC.
+- EXISTENCE CHECKS: Verify a service/path/registry key exists (Get-Service -EA SilentlyContinue, Test-Path) before Stop/Set/Remove. Log "skipped — not present" instead of erroring.
+- IDEMPOTENCY: Running the script twice must cause no harm and no duplicate side effects (no appending the same hosts-file line twice). Check current state before changing it.
+- LONG OPERATIONS: For SFC /scannow, DISM, CHKDSK, write a log line telling the user it may take several minutes so a long pause doesn't look frozen.
+- END SUMMARY: Finish every script with a clear summary line like: Write-Log "Done: 3 changes applied, 3 verified. A log was saved to your Desktop." "Green"
+- NO DATA LOSS: Never delete personal files. Only delete temp/cache/known-junk paths, and only with -ErrorAction SilentlyContinue.
 
 ${formatSafetyRules()}`
 

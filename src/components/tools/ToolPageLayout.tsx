@@ -4,12 +4,13 @@ import { Link, useNavigate } from "react-router"
 import { Button } from "@/components/common/Button"
 import { WarningBanner } from "@/components/common/WarningBanner"
 import { TrustBanner } from "@/components/common/TrustBanner"
-import { FixResultSkeleton } from "@/components/common/Skeleton"
+import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { CodeBlock } from "@/components/fix/CodeBlock"
 import { VerifyResult } from "@/components/fix/VerifyResult"
 import { useToolGenerator } from "@/hooks/useToolGenerator"
 import { showToast } from "@/components/common/Toast"
 import { Seo } from "@/components/common/Seo"
+import { TOOL_STATUS_MESSAGES } from "@/lib/statusMessages"
 import type { ToolConfig } from "@/lib/toolConfigs"
 
 type ToolStep = "download" | "verify" | "success" | "failure"
@@ -55,8 +56,7 @@ export function ToolPageLayout({ tool }: ToolPageProps) {
   if (currentStep === "loading") {
     return (
       <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6">
-        <p role="status" aria-live="polite" className="text-center text-surface-400 text-sm mb-8">Generating your <span className="text-white">{tool.title}</span> script, please wait...</p>
-        <FixResultSkeleton />
+        <LoadingSpinner messages={TOOL_STATUS_MESSAGES} />
       </div>
     )
   }

@@ -42,3 +42,11 @@ export const SCRIPT_SCAN_MESSAGES = [
   "Cross-referencing known safe commands...",
   "Preparing safety report...",
 ]
+
+export const TOOL_STATUS_MESSAGES = [
+  "Reading your Windows settings...",
+  "Building your custom fix...",
+  "Adding the safety checks and undo...",
+  "Double-checking every step...",
+  "Almost ready — packaging your script...",
+]
