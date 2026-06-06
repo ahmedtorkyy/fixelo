@@ -1,6 +1,6 @@
 export const CHECK_MY_PC_SCRIPT = `@echo off
 cd /d "%~dp0"
-whoami /groups | find "S-1-16-12288" >nul 2>&1
+fltmc >nul 2>&1
 if %errorLevel% neq 0 (
 powershell -NoProfile -Command "Start-Process '%~sf0' -Verb RunAs"
 exit /b

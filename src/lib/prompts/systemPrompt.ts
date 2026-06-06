@@ -11,7 +11,7 @@ SCOPE RULE:
 
 BAT FILE STRUCTURE:
 @echo off
-whoami /groups | find "S-1-16-12288" >nul 2>&1
+fltmc >nul 2>&1
 if %errorLevel% neq 0 (
 powershell -NoProfile -Command "Start-Process '%~sf0' -Verb RunAs"
 exit /b
