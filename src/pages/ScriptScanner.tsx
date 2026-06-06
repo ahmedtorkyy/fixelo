@@ -4,6 +4,7 @@ import { Button } from "@/components/common/Button"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { Seo } from "@/components/common/Seo"
 import { scanScript } from "@/lib/scriptGenerator"
+import { SCRIPT_SCAN_MESSAGES } from "@/lib/statusMessages"
 import type { ScriptScanResult } from "@/types/scanner"
 
 const labelConfig = {
@@ -87,7 +88,7 @@ export default function ScriptScannerPage() {
         </Button>
       </div>
 
-      {loading && <LoadingSpinner message="Scanning your script for safety..." />}
+      {loading && <LoadingSpinner messages={SCRIPT_SCAN_MESSAGES} />}
 
       {error && (
         <div className="bg-red-950/50 border border-red-800/50 rounded-2xl p-4">

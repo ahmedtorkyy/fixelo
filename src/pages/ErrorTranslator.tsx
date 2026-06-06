@@ -4,6 +4,7 @@ import { Button } from "@/components/common/Button"
 import { LoadingSpinner } from "@/components/common/LoadingSpinner"
 import { Seo } from "@/components/common/Seo"
 import { translateError } from "@/lib/scriptGenerator"
+import { ERROR_ANALYSIS_MESSAGES } from "@/lib/statusMessages"
 import type { ErrorTranslation } from "@/types/scanner"
 
 const EXAMPLES = [
@@ -95,7 +96,7 @@ export default function ErrorTranslatorPage() {
         </div>
       </div>
 
-      {loading && <LoadingSpinner message="Analyzing your error..." />}
+      {loading && <LoadingSpinner messages={ERROR_ANALYSIS_MESSAGES} />}
 
       {error && (
         <div className="bg-red-950/50 border border-red-800/50 rounded-2xl p-4">
