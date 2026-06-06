@@ -56,6 +56,8 @@ POWERSHELL RULES:
   Write-Log "Log saved to your Desktop as Fixelo_Log.txt" "Green"
   Read-Host "Press Enter to close"
 - Undo script must reverse every change with the same structure.
+- When embedding PowerShell or batch code as a string inside your script (e.g. to generate an undo .bat file), use SINGLE-QUOTED here-strings @'...'@ — NOT double-quoted @"..."@. Double-quoted here-strings expand variables ($raw, $script, $_, etc.) which will inject garbage and cause parser errors. Single-quoted here-strings @'...'@ preserve the content literally.
+- Never use `pause` in PowerShell. Use `Read-Host "Press Enter to close"` at the end.
 
 ${formatSafetyRules()}`
 
