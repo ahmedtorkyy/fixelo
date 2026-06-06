@@ -31,9 +31,9 @@ export function lookupCachedFix(problem: string): FixResult | null {
   const inputTokens = tokenize(problem)
   if (inputTokens.length === 0) return null
 
-  // Score each entry by how many of its keywords match
   let bestScore = 0
   let best: FixResult | null = null
+  let bestKeywordHadSpace = false
 
   for (const entry of CACHED_FIXES) {
     for (const kw of entry.keywords) {
@@ -43,10 +43,12 @@ export function lookupCachedFix(problem: string): FixResult | null {
         if (score > bestScore) {
           bestScore = score
           best = entry.result
+          bestKeywordHadSpace = kw.includes(" ")
         }
       }
     }
   }
 
-  return best
+  if (bestScore >= 2 || bestKeywordHadSpace) return best
+  return null
 }

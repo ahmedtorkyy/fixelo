@@ -3,6 +3,8 @@ import { lookupCachedFix } from "@/lib/cache/lookupCachedFix"
 import { suggestTools, type ToolSuggestion } from "./keywordMap"
 import { getToolConfig } from "@/lib/toolConfigs"
 
+const OFFTOPIC = /\b(python|javascript|java|c\+\+|c#|node\.?js|php|ruby|golang|html|css|sql|react|scrape|scraper|crawl|write (me )?(a |some )?(code|script|program|function)|code for|program for|linux|ubuntu|macos|mac os|android|iphone|recipe|cook|essay|poem|homework|translate)\b/i
+
 export interface RouteResult {
   type: "cached" | "tool-suggestion" | "ai"
   fixResult?: FixResult
@@ -12,6 +14,9 @@ export interface RouteResult {
 export function routeProblem(problem: string): RouteResult {
   const trimmed = problem.trim()
   if (!trimmed) return { type: "ai" }
+
+  // Off-topic: let the AI scope-guard refuse it
+  if (OFFTOPIC.test(trimmed)) return { type: "ai" }
 
   // 1. Try keyword-based tool suggestions first
   const suggestions = suggestTools(trimmed)
@@ -35,6 +40,9 @@ export async function routeProblemWithAI(
 ): Promise<RouteResult> {
   const trimmed = problem.trim()
   if (!trimmed) return { type: "ai" }
+
+  // Off-topic: let the AI scope-guard refuse it
+  if (OFFTOPIC.test(trimmed)) return { type: "ai" }
 
   // 1. Try keyword suggestions first
   const suggestions = suggestTools(trimmed)

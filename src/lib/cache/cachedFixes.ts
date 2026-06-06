@@ -56,7 +56,7 @@ Write-Log "Undo completed." "Yellow"`
 
 export const CACHED_FIXES: CachedFixEntry[] = [
   {
-    keywords: ["slow", "lag", "laggy", "sluggish", "stutter", "stuttering", "slow pc", "computer slow"],
+    keywords: ["slow pc", "computer slow"],
     result: makeFix({
       title: "Slow PC Fix",
       summary: "Disable startup programs, clear temp files, clear system caches, and optimize power plan for performance.",
@@ -151,7 +151,7 @@ Write-Log "Temp files and caches cannot be restored — they will rebuild natura
     }),
   },
   {
-    keywords: ["dns", "flush", "dns cache", "website", "website not loading", "dns problem"],
+    keywords: ["dns", "dns cache", "website not loading", "dns problem"],
     result: makeFix({
       title: "DNS Flush",
       summary: "Flush DNS resolver cache to fix website loading issues.",
@@ -166,7 +166,7 @@ Write-Log "DNS cache cannot be restored — it will repopulate naturally as you 
     }),
   },
   {
-    keywords: ["no sound", "audio", "speaker", "headphone", "sound not working", "audio not working", "no audio"],
+    keywords: ["no sound", "sound not working", "audio not working", "no audio"],
     result: makeFix({
       title: "Audio Fix",
       summary: "Restart Windows Audio service and re-register audio components to fix sound issues.",
@@ -231,7 +231,7 @@ Write-Log "Update cache was cleared and will be re-downloaded. Services were res
     }),
   },
   {
-    keywords: ["printer", "print", "printing", "printer not working", "print spooler", "printer offline"],
+    keywords: ["printer", "printing", "printer not working", "print spooler", "printer offline"],
     result: makeFix({
       title: "Printer Fix",
       summary: "Restart print spooler, clear print queue, and reinstall printer driver.",
