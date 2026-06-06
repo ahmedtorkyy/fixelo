@@ -8,7 +8,13 @@ export function psRequireAdmin(): string {
 function Write-Log([string]$msg, [string]$color = "White") {
     Write-Host $msg -ForegroundColor $color
     $script:log += "[$(Get-Date -Format 'HH:mm:ss')] $msg" + [Environment]::NewLine
-}`
+}
+
+Write-Log "========================================" "Cyan"
+Write-Log "  Fixelo v1.0 - Windows Repair Script" "Cyan"
+Write-Log "  https://fixelo.pages.dev" "Cyan"
+Write-Log "========================================" "Cyan"
+Write-Log ""`
 }
 
 const PS_FOOTER = `$logPath = "$env:USERPROFILE\\Desktop\\Fixelo_Log.txt"

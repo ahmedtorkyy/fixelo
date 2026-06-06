@@ -20,6 +20,11 @@ function Write-Log([string]$msg, [string]$color = "White") {
     $script:log += "[$(Get-Date -Format 'HH:mm:ss')] $msg" + [Environment]::NewLine
 }
 
+Write-Log "========================================" "Cyan"
+Write-Log "  Fixelo v1.0 - Windows Repair Script" "Cyan"
+Write-Log "  https://fixelo.pages.dev" "Cyan"
+Write-Log "========================================" "Cyan"
+Write-Log ""
 Write-Log "=== Fixelo PC Diagnostic Report ===" "Cyan"
 Write-Log ""
 Write-Log "--- System Info ---" "Yellow"

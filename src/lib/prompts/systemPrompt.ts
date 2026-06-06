@@ -64,6 +64,12 @@ POWERSHELL RULES:
 - When embedding PowerShell or batch code as a string inside your script (e.g. to generate an undo .bat file), use SINGLE-QUOTED here-strings @'...'@ — NOT double-quoted @"..."@. Double-quoted here-strings expand variables ($raw, $script, $_, etc.) which will inject garbage and cause parser errors. Single-quoted here-strings @'...'@ preserve the content literally.
 - Never use pause in PowerShell. Use Read-Host "Press Enter to close" at the end.
 - UNATTENDED EXECUTION: The script MUST run fully unattended with NO prompts. Use -Force and/or -Confirm:$false on every cmdlet that can prompt (e.g. Set-WinUserLanguageList -Force, Remove-Item -Force, Clear-RecycleBin -Force). At the top of the PowerShell, set $ConfirmPreference = 'None' and $ProgressPreference = 'SilentlyContinue'. The only allowed prompt is the final Read-Host "Press Enter to close".
+- FIXELO BRANDING: Start the PowerShell script with this exact branded header (copy it verbatim):
+  Write-Log "========================================" "Cyan"
+  Write-Log "  Fixelo v1.0 - Windows Repair Script" "Cyan"
+  Write-Log "  https://fixelo.pages.dev" "Cyan"
+  Write-Log "========================================" "Cyan"
+  Write-Log ""
 
 PREMIUM POWERSHELL RULES:
 - PowerShell 5.1 COMPATIBILITY: Windows ships PowerShell 5.1. Do NOT use PS7-only syntax: no null-coalescing ??, no ternary ? :, no &&/|| in PowerShell expressions, no -Parallel, no Clean-* cmdlets. Use if/else and explicit $null checks.

@@ -4,23 +4,30 @@ import { ArrowRight, Search, AlertCircle, Shield } from "lucide-react"
 import { Card } from "@/components/common/Card"
 import { Seo } from "@/components/common/Seo"
 import { TOOLS, TOOL_CATEGORIES } from "@/lib/toolConfigs"
+import { CATEGORY_ICONS } from "@/lib/categoryIcons"
 
 const categoryColors: Record<string, { icon: string; text: string; bg: string }> = {
-  "Fix Tools":          { icon: "text-red-400",    text: "text-red-400",    bg: "bg-red-600/15 group-hover:bg-red-600/25" },
-  "Performance":        { icon: "text-green-400",  text: "text-green-400",  bg: "bg-green-600/15 group-hover:bg-green-600/25" },
-  "Privacy & Security": { icon: "text-blue-400",   text: "text-blue-400",   bg: "bg-blue-600/15 group-hover:bg-blue-600/25" },
-  "Customization":      { icon: "text-purple-400", text: "text-purple-400", bg: "bg-purple-600/15 group-hover:bg-purple-600/25" },
-  "Automation":         { icon: "text-orange-400", text: "text-orange-400", bg: "bg-orange-600/15 group-hover:bg-orange-600/25" },
-  "Setup & Installation": { icon: "text-teal-400", text: "text-teal-400",   bg: "bg-teal-600/15 group-hover:bg-teal-600/25" },
+  "Fix Tools":              { icon: "text-red-400",    text: "text-red-400",    bg: "bg-red-600/15 group-hover:bg-red-600/25" },
+  "Performance":            { icon: "text-green-400",  text: "text-green-400",  bg: "bg-green-600/15 group-hover:bg-green-600/25" },
+  "Privacy & Security":     { icon: "text-blue-400",   text: "text-blue-400",   bg: "bg-blue-600/15 group-hover:bg-blue-600/25" },
+  "Customization":          { icon: "text-purple-400", text: "text-purple-400", bg: "bg-purple-600/15 group-hover:bg-purple-600/25" },
+  "Automation":             { icon: "text-orange-400", text: "text-orange-400", bg: "bg-orange-600/15 group-hover:bg-orange-600/25" },
+  "Setup & Installation":   { icon: "text-teal-400",   text: "text-teal-400",   bg: "bg-teal-600/15 group-hover:bg-teal-600/25" },
+  "Backup":                 { icon: "text-cyan-400",   text: "text-cyan-400",   bg: "bg-cyan-600/15 group-hover:bg-cyan-600/25" },
+  "Hardware":               { icon: "text-pink-400",   text: "text-pink-400",   bg: "bg-pink-600/15 group-hover:bg-pink-600/25" },
+  "Apps":                   { icon: "text-yellow-400", text: "text-yellow-400", bg: "bg-yellow-600/15 group-hover:bg-yellow-600/25" },
 }
 
 const categoryDescriptions: Record<string, string> = {
-  "Fix Tools": "Diagnose and repair common Windows problems",
-  "Performance": "Speed up and optimize your PC",
-  "Privacy & Security": "Protect your privacy and secure your system",
-  "Customization": "Personalize your Windows experience",
-  "Automation": "Set up automatic tasks and schedules",
-  "Setup & Installation": "Install software and configure your environment",
+  "Fix Tools":              "Diagnose and repair common Windows problems",
+  "Performance":            "Speed up and optimize your PC",
+  "Privacy & Security":     "Protect your privacy and secure your system",
+  "Customization":          "Personalize your Windows experience",
+  "Automation":             "Set up automatic tasks and schedules",
+  "Setup & Installation":   "Install software and configure your environment",
+  "Backup":                 "Safeguard your files and system",
+  "Hardware":               "Manage and troubleshoot hardware devices",
+  "Apps":                   "Manage and configure applications",
 }
 
 export default function ToolsPage() {
@@ -122,9 +129,14 @@ export default function ToolsPage() {
       <div className="space-y-12">
         {toolsByCategory.map(({ category, description, colors, tools }) => (
           <div key={category}>
-            <div className="mb-4">
-              <h2 className={`text-xl font-bold ${colors.text}`}>{category}</h2>
-              <p className="text-surface-500 text-sm">{description}</p>
+            <div className="mb-4 flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${colors.bg.replace('group-hover:', '')}`}>
+                <span className={colors.icon}>{CATEGORY_ICONS[category]}</span>
+              </div>
+              <div>
+                <h2 className={`text-xl font-bold ${colors.text}`}>{category}</h2>
+                <p className="text-surface-500 text-sm">{description}</p>
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {tools.map((tool) => (
