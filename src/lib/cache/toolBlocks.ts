@@ -608,10 +608,12 @@ Write-Log "Network power throttling restored"
 # Reset WiFi adapter by disabling and re-enabling
 $wifi = Get-WmiObject Win32_NetworkAdapter | Where-Object { $_.Name -match "WiFi|Wireless|802.11" -and $_.ConfigManagerErrorCode -eq 0 }
 if ($wifi) {
-  Write-Log "Resetting WiFi adapter: $($wifi.Name)"
-  $wifi.Disable() | Out-Null
-  Start-Sleep -Seconds 3
-  $wifi.Enable() | Out-Null
+  foreach ($a in $wifi) {
+    Write-Log "Resetting WiFi adapter: $($a.Name)"
+    $a.Disable() | Out-Null
+    Start-Sleep -Seconds 3
+    $a.Enable() | Out-Null
+  }
   Write-Log "WiFi adapter reset complete"
 } else {
   Write-Log "No WiFi adapter found" "Yellow"
@@ -2336,7 +2338,7 @@ Write-Log "Bloatware removal cannot be trivially undone. Reinstall apps from Mic
 $apps = @("Mozilla.Firefox", "VideoLAN.VLC", "7zip.7zip", "Microsoft.PowerToys")
 foreach ($app in $apps) {
   Write-Log "Installing $app..."
-  winget install --id $app --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+  winget install --id $app --silent --accept-package-agreements --accept-source-agreements
 }
 Write-Log "Software installation completed"
 } catch {
@@ -2452,7 +2454,7 @@ if (Test-Path $onedrive) {
 $apps = @("Mozilla.Firefox", "Google.Chrome", "Brave.Brave")
 foreach ($app in $apps) {
   Write-Log "Installing $app..."
-  winget install --id $app --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+  winget install --id $app --silent --accept-package-agreements --accept-source-agreements
 }
 Write-Log "Browser installation completed"
 } catch {
@@ -2472,7 +2474,7 @@ Write-Log "Uninstall browsers via Settings > Apps > Installed apps." "Yellow"
 $apps = @("VideoLAN.VLC", "Spotify.Spotify", "Apple.iTunes")
 foreach ($app in $apps) {
   Write-Log "Installing $app..."
-  winget install --id $app --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+  winget install --id $app --silent --accept-package-agreements --accept-source-agreements
 }
 Write-Log "Media app installation completed"
 } catch {
@@ -2492,7 +2494,7 @@ Write-Log "Uninstall media apps via Settings > Apps > Installed apps." "Yellow"
 $apps = @("7zip.7zip", "voidtools.Everything", "Microsoft.PowerToys")
 foreach ($app in $apps) {
   Write-Log "Installing $app..."
-  winget install --id $app --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+  winget install --id $app --silent --accept-package-agreements --accept-source-agreements
 }
 Write-Log "Utility installation completed"
 } catch {
@@ -2512,7 +2514,7 @@ Write-Log "Uninstall utilities via Settings > Apps > Installed apps." "Yellow"
 $apps = @("Discord.Discord", "Zoom.Zoom", "Telegram.TelegramDesktop")
 foreach ($app in $apps) {
   Write-Log "Installing $app..."
-  winget install --id $app --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+  winget install --id $app --silent --accept-package-agreements --accept-source-agreements
 }
 Write-Log "Communication app installation completed"
 } catch {
@@ -2532,7 +2534,7 @@ Write-Log "Uninstall communication apps via Settings > Apps > Installed apps." "
 $apps = @("Notion.Notion", "Obsidian.Obsidian", "TheDocumentFoundation.LibreOffice")
 foreach ($app in $apps) {
   Write-Log "Installing $app..."
-  winget install --id $app --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+  winget install --id $app --silent --accept-package-agreements --accept-source-agreements
 }
 Write-Log "Productivity app installation completed"
 } catch {
@@ -2552,7 +2554,7 @@ Write-Log "Uninstall productivity apps via Settings > Apps > Installed apps." "Y
 $apps = @("Git.Git", "Microsoft.VisualStudioCode", "Python.Python.3.13", "OpenJS.NodeJS.LTS")
 foreach ($app in $apps) {
   Write-Log "Installing $app..."
-  winget install --id $app --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+  winget install --id $app --silent --accept-package-agreements --accept-source-agreements
 }
 Write-Log "Dev tool installation completed"
 } catch {
@@ -2572,7 +2574,7 @@ Write-Log "Uninstall dev tools via Settings > Apps > Installed apps." "Yellow"
       label: "Install Git",
       description: "Installs Git for version control",
       script: `try {
-winget install --id Git.Git --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+winget install --id Git.Git --silent --accept-package-agreements --accept-source-agreements
 Write-Log "Git installed"
 } catch {
   Write-Log "Error in Install Git: $($_.Exception.Message)" "Red"
@@ -2588,7 +2590,7 @@ Write-Log "Uninstall Git via Settings > Apps > Installed apps." "Yellow"
       label: "Install Node.js (LTS)",
       description: "Installs Node.js LTS for JavaScript development",
       script: `try {
-winget install --id OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+winget install --id OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements
 Write-Log "Node.js installed"
 } catch {
   Write-Log "Error in Install Node.js (LTS): $($_.Exception.Message)" "Red"
@@ -2604,7 +2606,7 @@ Write-Log "Uninstall Node.js via Settings > Apps > Installed apps." "Yellow"
       label: "Install Python",
       description: "Installs Python 3 for scripting and development",
       script: `try {
-winget install --id Python.Python.3.13 --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+winget install --id Python.Python.3.13 --silent --accept-package-agreements --accept-source-agreements
 Write-Log "Python installed"
 } catch {
   Write-Log "Error in Install Python: $($_.Exception.Message)" "Red"
@@ -2620,7 +2622,7 @@ Write-Log "Uninstall Python via Settings > Apps > Installed apps." "Yellow"
       label: "Install VS Code",
       description: "Installs Visual Studio Code with recommended extensions",
       script: `try {
-winget install --id Microsoft.VisualStudioCode --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+winget install --id Microsoft.VisualStudioCode --silent --accept-package-agreements --accept-source-agreements
 Write-Log "VS Code installed"
 } catch {
   Write-Log "Error in Install VS Code: $($_.Exception.Message)" "Red"
@@ -2636,7 +2638,7 @@ Write-Log "Uninstall VS Code via Settings > Apps > Installed apps." "Yellow"
       label: "Install Windows Terminal",
       description: "Installs the modern Windows Terminal",
       script: `try {
-winget install --id Microsoft.WindowsTerminal --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+winget install --id Microsoft.WindowsTerminal --silent --accept-package-agreements --accept-source-agreements
 Write-Log "Windows Terminal installed"
 } catch {
   Write-Log "Error in Install Windows Terminal: $($_.Exception.Message)" "Red"
@@ -6018,7 +6020,7 @@ Write-Log "Restore cannot be undone. Run the tweaks again if needed." "Yellow"
   if ($idMatch.Success) {
     $id = $idMatch.Groups[1].Value
     Write-Log "Installing: $id" "Green"
-    winget install --id $id --exact --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+    winget install --id $id --exact --silent --accept-package-agreements --accept-source-agreements
     $check = winget list --id $id --exact 2>&1 | Out-String
     if ($check -match $id) { Write-Log "Verified: $id installed" "Green" }
     else { Write-Log "Installation may have failed for $id" "Yellow" }
@@ -6040,7 +6042,7 @@ Write-Log "Restore cannot be undone. Run the tweaks again if needed." "Yellow"
       description: "Installs Google Chrome via winget",
       script: `try {
   Write-Log "Installing Google Chrome..."
-  winget install --id Google.Chrome --exact --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+  winget install --id Google.Chrome --exact --silent --accept-package-agreements --accept-source-agreements
   $check = winget list --id Google.Chrome --exact 2>&1 | Out-String
   if ($check -match "Google.Chrome") { Write-Log "Verified: Google Chrome installed" "Green" }
   else { Write-Log "Installation may have failed" "Yellow" }
@@ -6048,7 +6050,7 @@ Write-Log "Restore cannot be undone. Run the tweaks again if needed." "Yellow"
   Write-Log "Error in Install Browser (Chrome): $($_.Exception.Message)" "Red"
 }`,
       undoScript: `try {
-  winget uninstall --id Google.Chrome --silent -ErrorAction SilentlyContinue
+  winget uninstall --id Google.Chrome --silent
   Write-Log "Google Chrome uninstalled" "Green"
 } catch {
   Write-Log "Error: $($_.Exception.Message)" "Red"
@@ -6060,7 +6062,7 @@ Write-Log "Restore cannot be undone. Run the tweaks again if needed." "Yellow"
       description: "Installs VLC media player via winget",
       script: `try {
   Write-Log "Installing VLC media player..."
-  winget install --id VideoLAN.VLC --exact --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+  winget install --id VideoLAN.VLC --exact --silent --accept-package-agreements --accept-source-agreements
   $check = winget list --id VideoLAN.VLC --exact 2>&1 | Out-String
   if ($check -match "VideoLAN.VLC") { Write-Log "Verified: VLC installed" "Green" }
   else { Write-Log "Installation may have failed" "Yellow" }
@@ -6068,7 +6070,7 @@ Write-Log "Restore cannot be undone. Run the tweaks again if needed." "Yellow"
   Write-Log "Error in Install Media Player (VLC): $($_.Exception.Message)" "Red"
 }`,
       undoScript: `try {
-  winget uninstall --id VideoLAN.VLC --silent -ErrorAction SilentlyContinue
+  winget uninstall --id VideoLAN.VLC --silent
   Write-Log "VLC uninstalled" "Green"
 } catch {
   Write-Log "Error: $($_.Exception.Message)" "Red"
@@ -6082,7 +6084,7 @@ Write-Log "Restore cannot be undone. Run the tweaks again if needed." "Yellow"
   $apps = @("7zip.7zip", "VideoLAN.VLC", "Google.Chrome")
   foreach ($app in $apps) {
     Write-Log "Installing $app..."
-    winget install --id $app --exact --silent --accept-package-agreements --accept-source-agreements -ErrorAction SilentlyContinue
+    winget install --id $app --exact --silent --accept-package-agreements --accept-source-agreements
   }
   Write-Log "Essentials installation completed" "Green"
 } catch {
@@ -6091,7 +6093,7 @@ Write-Log "Restore cannot be undone. Run the tweaks again if needed." "Yellow"
       undoScript: `try {
   $apps = @("7zip.7zip", "VideoLAN.VLC", "Google.Chrome")
   foreach ($app in $apps) {
-    winget uninstall --id $app --silent -ErrorAction SilentlyContinue
+    winget uninstall --id $app --silent
   }
   Write-Log "Essentials uninstalled" "Green"
 } catch {
