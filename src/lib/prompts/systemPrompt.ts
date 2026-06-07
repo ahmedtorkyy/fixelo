@@ -39,14 +39,14 @@ __PSSCRIPT__
   Write-Log "  fixelo is doing its work" "Cyan"
   Write-Log "========================================" "Cyan"
   Write-Log ""
-- END with this EXACT log-saving block, then the closing Read-Host:
+- END the FIX script with this EXACT log-saving block, then the closing Read-Host. Do NOT place any Write-Log call after the [IO.File]::WriteAllText line — anything logged after the save is LOST from the saved file and clipboard. Use Write-Host (not Write-Log) for any final on-screen-only message:
   $logPath = "$env:USERPROFILE\\Desktop\\Fixelo_Log.txt"
   if ([string]::IsNullOrWhiteSpace($script:log)) { $script:log = "Fixelo ran, but logging was unavailable. The fix may still have applied. RESULT: PARTIAL" }
   [IO.File]::WriteAllText($logPath, $script:log, [Text.Encoding]::UTF8)
   try { Set-Clipboard -Value $script:log } catch {}
   Write-Host "Log saved to your Desktop as Fixelo_Log.txt" -ForegroundColor Green
   Read-Host "Press Enter to close"
-- The undo script must reverse every change using this same skeleton structure.
+- The undo script uses this SAME skeleton, but it MUST save its log to "$env:USERPROFILE\\Desktop\\Fixelo_Undo_Log.txt" — NEVER to Fixelo_Log.txt. The undo must reverse every change and must NEVER overwrite or touch the original Fixelo_Log.txt under any circumstances.
 
 === 2. POWERSHELL SYNTAX ===
 - POWERSHELL 5.1 ONLY: Windows ships Windows PowerShell 5.1. Never use PS7-only syntax: no null-coalescing ??, no ternary ? :, no &&/|| in PowerShell expressions, no -Parallel, no Clean-* cmdlets. Use if/else and explicit $null checks.
